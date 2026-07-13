@@ -29,3 +29,11 @@ class StorageBackend(ABC):
         Delete the file from the storage path.
         """
         pass
+
+    @abstractmethod
+    def exists(self, storage_path: str) -> bool:
+        """
+        Return True if the file exists at the given storage path.
+        """
+        pass
+

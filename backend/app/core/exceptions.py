@@ -59,8 +59,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 async def global_exception_handler(request: Request, exc: Exception):
     """
-    Global exception handler to capture any unhandled exceptions and prevent stack trace leaks.
+    Global exception handler. Delegates HTTPExceptions to Starlette's default
+    response so that 404s from StaticFiles are returned correctly, not swallowed.
     """
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+    if isinstance(exc, StarletteHTTPException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+        )
     req_id = request_id_ctx.get() or str(uuid.uuid4())
     logger.exception(f"Unhandled exception detected in request: {exc}")
     return JSONResponse(

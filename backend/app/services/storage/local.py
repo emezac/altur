@@ -57,3 +57,7 @@ class LocalDiskStorage(StorageBackend):
     def delete(self, storage_path: str) -> None:
         if os.path.exists(storage_path):
             os.remove(storage_path)
+
+    def exists(self, storage_path: str) -> bool:
+        return os.path.exists(storage_path)
+

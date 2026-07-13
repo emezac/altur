@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Call Analyzer — AI Sales Intelligence</title>
+  <meta name="description" content="AI-powered sales call analyzer providing transcription, sentiment analysis, intent scoring, and key insight extraction." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body>
+
+  <!-- ── Sidebar ─────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <header class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">◎</span>
+        <span class="logo-text">Altur<em>AI</em></span>
+      </div>
+      <button class="sidebar-collapse" id="sidebarToggle" title="Toggle sidebar">&#8942;</button>
+    </header>
+
+    <!-- Upload Zone -->
+    <div class="upload-zone" id="uploadZone">
+      <div class="upload-inner">
+        <span class="upload-icon" id="uploadIcon">⬆</span>
+        <p class="upload-label" id="uploadLabel">Drop audio here</p>
+        <p class="upload-sub">WAV · MP3 · M4A · max 25 MB</p>
+        <input type="file" id="fileInput" accept=".wav,.mp3,.m4a" hidden />
+        <button class="btn-upload" id="uploadBtn">Choose file</button>
+      </div>
+      <div class="upload-progress" id="uploadProgress" hidden>
+        <div class="progress-bar" id="progressBar"></div>
+        <span class="progress-label" id="progressLabel">Uploading…</span>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="search-wrap">
+      <input type="search" class="search-input" id="searchInput" placeholder="Search calls…" autocomplete="off" />
+    </div>
+
+    <!-- Calls List -->
+    <nav class="calls-list" id="callsList">
+      <div class="calls-list-empty" id="callsEmpty">
+        <span>No calls yet</span>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- ── Main Content ──────────────────────────────────────────── -->
+  <main class="main" id="main">
+
+    <!-- Welcome / Empty state -->
+    <section class="welcome" id="welcome">
+      <div class="welcome-inner">
+        <div class="welcome-glow"></div>
+        <h1 class="welcome-title">Sales Call Intelligence</h1>
+        <p class="welcome-sub">Upload an audio recording to transcribe, analyze sentiment,<br/>extract insights, and score purchase intent with AI.</p>
+        <div class="welcome-features">
+          <div class="feature-card">
+            <span class="feature-icon">🎙️</span>
+            <span>Speech-to-Text</span>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">🧠</span>
+            <span>LLM Analysis</span>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">📊</span>
+            <span>Insight Scoring</span>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">🏷️</span>
+            <span>Auto Tagging</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Call Detail Panel -->
+    <section class="detail" id="detail" hidden>
+
+      <!-- Detail Header -->
+      <header class="detail-header">
+        <div class="detail-meta">
+          <h2 class="detail-filename" id="detailFilename">—</h2>
+          <div class="detail-badges">
+            <span class="badge status-badge" id="statusBadge">—</span>
+            <span class="badge lang-badge" id="langBadge" hidden>—</span>
+          </div>
+        </div>
+        <div class="detail-actions">
+          <button class="btn-icon" id="downloadAudio" title="Download audio" hidden>⬇ Audio</button>
+          <button class="btn-icon btn-close" id="closeDetail" title="Close">✕</button>
+        </div>
+      </header>
+
+      <!-- Processing placeholder -->
+      <div class="processing" id="processing" hidden>
+        <div class="spinner"></div>
+        <p>Processing call… <span id="processingStatus">PENDING</span></p>
+      </div>
+
+      <!-- Content grid (shown only when COMPLETED) -->
+      <div class="detail-grid" id="detailGrid" hidden>
+
+        <!-- Left column: Audio + Transcript -->
+        <div class="col-left">
+
+          <!-- Audio Player -->
+          <div class="player-card" id="playerCard" hidden>
+            <div class="player-header">
+              <span class="card-title">🎵 Audio Playback</span>
+            </div>
+            <audio class="audio-player" id="audioPlayer" controls preload="metadata"></audio>
+          </div>
+
+          <!-- Transcript -->
+          <div class="transcript-card">
+            <div class="card-header">
+              <span class="card-title">📝 Transcript</span>
+              <div class="card-actions">
+                <button class="btn-pill active" id="viewTurns">Turns</button>
+                <button class="btn-pill" id="viewRaw">Raw text</button>
+              </div>
+            </div>
+            <div class="transcript-body" id="transcriptBody">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right column: Insights + Tags -->
+        <div class="col-right">
+
+          <!-- Summary Card -->
+          <div class="insight-card" id="summaryCard" hidden>
+            <div class="card-header">
+              <span class="card-title">💡 Summary</span>
+            </div>
+            <p class="summary-text" id="summaryText">—</p>
+
+            <!-- Sentiment Meter -->
+            <div class="metric-row">
+              <span class="metric-label">Sentiment</span>
+              <div class="meter-wrap">
+                <div class="meter-bar" id="sentimentBar"></div>
+              </div>
+              <span class="metric-value" id="sentimentValue">—</span>
+            </div>
+
+            <!-- Intent Meter -->
+            <div class="metric-row">
+              <span class="metric-label">Purchase Intent</span>
+              <div class="meter-wrap">
+                <div class="meter-bar intent-bar" id="intentBar"></div>
+              </div>
+              <span class="metric-value" id="intentValue">—</span>
+            </div>
+          </div>
+
+          <!-- Key Points -->
+          <div class="insight-card" id="keyPointsCard" hidden>
+            <div class="card-header">
+              <span class="card-title">✅ Key Points</span>
+            </div>
+            <ul class="key-points-list" id="keyPointsList"></ul>
+          </div>
+
+          <!-- Tags -->
+          <div class="insight-card" id="tagsCard" hidden>
+            <div class="card-header">
+              <span class="card-title">🏷️ Tags</span>
+            </div>
+            <div class="tags-grid" id="tagsGrid"></div>
+          </div>
+
+          <!-- Timeline -->
+          <div class="insight-card" id="timelineCard" hidden>
+            <div class="card-header">
+              <span class="card-title">📋 Event Timeline</span>
+            </div>
+            <ol class="timeline" id="timeline"></ol>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
+

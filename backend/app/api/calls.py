@@ -1,16 +1,19 @@
 import json
 import logging
-from typing import Optional
-from fastapi import APIRouter, Depends, File, UploadFile, Form, Request
+from typing import Optional, List
+from fastapi import APIRouter, Depends, File, UploadFile, Form, Request, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.exceptions import AppError
-from app.schemas.call import CallUploadResponse
+from app.schemas.call import CallUploadResponse, CallListResponse, CallDetailResponse
+from app.models.call import Call
 from app.services.file_validator import validate_file_size, validate_file_format
 from app.services.calls_service import create_call
 from app.workers.queue import get_queue
 from app.workers.tasks import transcribe_call
+from app.services.storage.factory import get_storage_backend
 
 router = APIRouter(prefix="/calls")
 logger = logging.getLogger(__name__)
@@ -85,3 +88,37 @@ async def upload_call(
         filename=call_filename,
         uploaded_at=call_uploaded_at
     )
+
+@router.get("", response_model=List[CallListResponse])
+def list_calls(db: Session = Depends(get_db)):
+    """
+    Returns list of all calls registered in DB, sorted by upload time descending.
+    """
+    return db.query(Call).order_by(Call.uploaded_at.desc()).all()
+
+@router.get("/{call_id}", response_model=CallDetailResponse)
+def get_call_detail(call_id: str, db: Session = Depends(get_db)):
+    """
+    Returns the complete structured metadata, transcript, summary, tags, and audit events.
+    """
+    call = db.query(Call).filter(Call.id == call_id).first()
+    if not call:
+        raise HTTPException(status_code=404, detail="Call record not found.")
+    return call
+
+@router.get("/{call_id}/audio")
+def get_call_audio(call_id: str, db: Session = Depends(get_db)):
+    """
+    Streams the raw ingested audio file from storage.
+    """
+    call = db.query(Call).filter(Call.id == call_id).first()
+    if not call:
+        raise HTTPException(status_code=404, detail="Call record not found.")
+    
+    storage = get_storage_backend()
+    if not storage.exists(call.storage_path):
+        raise HTTPException(status_code=404, detail="Audio file not found in storage.")
+    
+    media_type = call.mime_type or "audio/mpeg"
+    return FileResponse(call.storage_path, media_type=media_type)
+
