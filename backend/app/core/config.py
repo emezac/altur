@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 from typing import Optional
 
 class Settings(BaseSettings):
@@ -7,6 +8,20 @@ class Settings(BaseSettings):
 
     # --- Database ---
     DATABASE_URL: str = "sqlite:///./dev.db"
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def normalize_database_url(cls, v: str) -> str:
+        """
+        Managed Postgres providers (Heroku, Render...) hand out URLs with the legacy
+        `postgres://` scheme, which SQLAlchemy 2.x no longer recognizes. Normalize to
+        the explicit psycopg (v3) driver so the same code runs unchanged in every env.
+        """
+        if v.startswith("postgres://"):
+            return "postgresql+psycopg://" + v[len("postgres://"):]
+        if v.startswith("postgresql://"):
+            return "postgresql+psycopg://" + v[len("postgresql://"):]
+        return v
 
     # --- Queue ---
     REDIS_URL: Optional[str] = None
