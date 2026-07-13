@@ -1,48 +1,102 @@
-# Call Analyzer - Altur Take-home
+# Call Analyzer — AI Sales Intelligence Suite
 
-Sales call transcription suite, automated semantic analysis, and quality assurance (QA) control.
+An automated, decoupled platform for sales call ingestion, speech-to-text (STT) transcription, and AI-powered semantic analysis. The system extracts summaries, key points, customer sentiments, purchase intent, and structured sales tagging classifications (outcomes, next steps, objections, and compliance flags) through an interactive SPA dashboard.
 
-## 1. Overview & Screenshots
-> 🚧 Completed in Phase 7.
+---
 
-## 2. Architecture
-* **Event-Driven / Decoupled Architecture:** The asynchronous pipeline isolates the ingestion (`POST /calls`), transcription (STT), and analysis (LLM) using a task queue (RQ) and dedicated workers.
-* **Execution Modes:**
-  * **LOCAL_DEV:** SQLite for the database, RQ in burst mode (synchronous `fakeredis`), deterministic `FakeSTT` and `FakeLLM` providers loaded from fixtures, and local disk storage.
-  * **LOCAL_DOCKER:** PostgreSQL, Redis, configured providers, and local disk storage in Docker Compose.
-  * **CLOUD:** Managed PostgreSQL, managed Redis, S3 for storage, and real OpenAI APIs.
+## 1. System Architecture
 
-## 3. Quickstart (LOCAL_DEV)
-> 🚧 Completed in Phase 10.
+The application is built around a status-driven, decoupled background worker pipeline:
 
-## 4. Running with Docker
-> 🚧 Completed in Phase 10.
+* **FastAPI Server:** Ingests audio files via REST API (`POST /api/v1/calls`), performs validation, persists metadata to SQLite, saves files to local storage, and enqueues background tasks.
+* **Worker Queue (RQ):** Orchestrates tasks. Operates in `LOCAL_DEV` mode using synchronous inline execution with `fakeredis` (meaning task chains execute synchronously in the thread on request execution for simplified development and testing).
+* **Orchestration Task Pipeline:**
+  1. `transcribe_call`: Sets state to `TRANSCRIBING`, runs Whisper STT, saves raw transcript and turns to the `Transcript` table, updates state to `TRANSCRIBED`, and schedules analysis.
+  2. `analyze_call`: Sets state to `ANALYZING`, runs sales insights LLM analysis, saves summaries to `Summary`, saves classification elements as EAV rows to `CallTag`, and updates state to `COMPLETED`.
+  3. `Error Boundary Recovery`: Catches exceptions, updates the state to `FAILED`, and logs `ERROR` entries to the `CallEvent` audit trail.
 
-## 5. Environment Variables
-The project uses a single environment variable contract configured using Pydantic Settings.
-* See [env.example](.env.example) for more details.
-> 🚧 Completed in Phase 10.
+---
 
-## 6. API Reference
-> 🚧 Completed in Phases 2 and 6.
+## 2. Quickstart
 
-## 7. Tagging Schema & Prompt Design
-The analyzer uses a structured scheme of 7 sales tag categories.
-* See [prompt_design.md](docs/prompt_design.md) for details on prompt design and quality evaluation.
+### Prerequisites
+* Python 3.10+
+* sqlite3
 
-## 8. Testing
-> 🚧 Completed in Phase 9.
+### Setup & Run
+1. **Clone and navigate to the project directory:**
+   ```bash
+   cd challenge
+   ```
 
-## 9. Error Handling & State Machine
-The system implements a state machine to perform atomic transitions and guarantee task queue idempotency.
-* **States:** `PENDING ➔ TRANSCRIBING ➔ TRANSCRIBED ➔ ANALYZING ➔ DONE / FAILED`
-> 🚧 Completed in Phase 8.
+2. **Initialize Python environment & dependencies:**
+   ```bash
+   cd backend
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   pip install -r requirements-dev.txt
+   ```
 
-## 10. Deployment (Heroku)
-> 🚧 Completed in Phase 10.
+3. **Configure Environment Variables:**
+   Create a `.env` file in `backend/`:
+   ```env
+   DATABASE_URL=sqlite:///dev.db
+   LOCAL_STORAGE_PATH=data/audio
+   REDIS_URL=
+   CORS_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
+   ```
 
-## 11. Assumptions & Trade-offs
-> 🚧 Completed in Phase 10.
+4. **Execute Database Migrations:**
+   ```bash
+   alembic upgrade head
+   ```
 
-## 12. Roadmap (Future Improvements)
-> 🚧 Completed in Phase 10.
+5. **Start the Dev Server:**
+   ```bash
+   uvicorn app.main:app --port 8000
+   ```
+
+6. **Access the Web Application:**
+   Open [http://localhost:8000/](http://localhost:8000/) in your web browser.
+
+---
+
+## 3. Web SPA Interface
+
+The frontend is a lightweight, responsive dashboard with a modern dark theme and glassmorphic panels:
+* **Audio Uploading:** Supports drag-and-drop file ingestion with live progress loaders.
+* **Calls Listing:** Searchable sidebar containing current processing status badges (PENDING, TRANSCRIBING, COMPLETED, FAILED).
+* **Interactive Player & Transcript:** Syncs transcription dialogues to audio playtime. Clicking any speech bubble/turn instantly seeks the audio player to that exact starting second and plays.
+* **Insights Dashboard:** Displays summaries, sentiment metrics, intent levels, checklists, objections, and timeline logs.
+
+---
+
+## 4. API Reference
+
+All routes are prefixed by `/api/v1`.
+
+### Ingestion API
+* **`POST /calls`**
+  * **Payload:** Multipart/form-data containing a `file` field (`.wav`, `.mp3`, or `.m4a` format, max 25 MB).
+  * **Response:** `202 Accepted` returning the registered `call_id` and initial status `PENDING`.
+
+### Retrieval APIs
+* **`GET /calls`**
+  * **Response:** `200 OK` returning a list of all calls ordered by upload time descending.
+* **`GET /calls/{call_id}`**
+  * **Response:** `200 OK` returning the call details joined with transcripts, summaries, tag entries, and event logs.
+* **`GET /calls/{call_id}/audio`**
+  * **Response:** Streams the raw audio file from the storage backend.
+
+---
+
+## 5. Running Tests
+
+The test suite contains 29 unit and integration tests covering validations, fake provider routing, worker tasks, error boundaries, and retrieve routes.
+
+To execute tests:
+```bash
+# From altur/backend/
+PYTHONPATH=. .venv/bin/pytest -v
+```
