@@ -1,0 +1,73 @@
+import json
+import logging
+from typing import Optional
+from fastapi import APIRouter, Depends, File, UploadFile, Form, Request
+from sqlalchemy.orm import Session
+
+from app.core.db import get_db
+from app.core.exceptions import AppError
+from app.schemas.call import CallUploadResponse
+from app.services.file_validator import validate_file_size, validate_file_format
+from app.services.calls_service import create_call
+
+router = APIRouter(prefix="/calls")
+logger = logging.getLogger(__name__)
+
+@router.post("", response_model=CallUploadResponse, status_code=202)
+async def upload_call(
+    request: Request,
+    file: UploadFile = File(...),
+    metadata: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Accepts audio file upload, validates its extension, actual format, size,
+    saves it to disk/storage, and persists the PENDING record in the database.
+    """
+    # 1. Size check via Content-Length header
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            validate_file_size(int(content_length))
+        except ValueError:
+            pass
+
+    # 2. Size check via UploadFile object (if populated)
+    if file.size is not None:
+        validate_file_size(file.size)
+
+    # 3. Format signature check
+    # Read the first 2048 bytes for format detection
+    header = await file.read(2048)
+    await file.seek(0)  # Reset pointer back to the beginning
+
+    validate_file_format(file.filename, header)
+
+    # Parse optional metadata
+    metadata_dict = None
+    if metadata:
+        try:
+            metadata_dict = json.loads(metadata)
+        except json.JSONDecodeError:
+            logger.warning("Invalid JSON string in metadata form field.")
+            raise AppError("VALIDATION_ERROR", "Metadata form field must be a valid JSON string.", 400)
+
+    # Determine file size
+    actual_size = file.size if file.size is not None else (int(content_length) if content_length else 0)
+    
+    # 4. Ingest file and register call
+    db_call = create_call(
+        db=db,
+        fileobj=file,
+        filename=file.filename,
+        mime_type=file.headers.get("content-type", "audio/mpeg"),
+        file_size=actual_size,
+        metadata=metadata_dict
+    )
+
+    return CallUploadResponse(
+        call_id=db_call.id,
+        status=db_call.status,
+        filename=db_call.filename,
+        uploaded_at=db_call.uploaded_at
+    )

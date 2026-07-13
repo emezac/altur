@@ -10,6 +10,8 @@ htmlcov/
 .env
 data/audio/*
 !data/audio/.gitkeep
+backend/data/audio/*
+!backend/data/audio/.gitkeep
 node_modules/
 dist/
 build/
