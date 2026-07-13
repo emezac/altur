@@ -67,14 +67,21 @@ async def upload_call(
         metadata=metadata_dict
     )
 
+    # Capture scalar values before enqueuing — synchronous inline tasks
+    # (fakeredis is_async=False) may cause the session to expire the object.
+    call_id = db_call.id
+    call_status = db_call.status
+    call_filename = db_call.filename
+    call_uploaded_at = db_call.uploaded_at
+
     # 5. Enqueue background transcription task
     queue = get_queue()
-    queue.enqueue(transcribe_call, db_call.id)
-    logger.info(f"Enqueued transcribe_call for call_id={db_call.id}")
+    queue.enqueue(transcribe_call, call_id)
+    logger.info(f"Enqueued transcribe_call for call_id={call_id}")
 
     return CallUploadResponse(
-        call_id=db_call.id,
-        status=db_call.status,
-        filename=db_call.filename,
-        uploaded_at=db_call.uploaded_at
+        call_id=call_id,
+        status=call_status,
+        filename=call_filename,
+        uploaded_at=call_uploaded_at
     )

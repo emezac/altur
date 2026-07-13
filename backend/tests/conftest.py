@@ -74,3 +74,14 @@ def fixture_client(db):
     with TestClient(app, raise_server_exceptions=False) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+@pytest.fixture(autouse=True)
+def mock_tasks_db_session(db, monkeypatch):
+    """
+    Injects the test's DB session into background tasks, and disables db.close()
+    inside tasks so the shared test transaction is not prematurely destroyed.
+    """
+    import app.workers.tasks as tasks_mod
+    monkeypatch.setattr(tasks_mod, "_TESTING", True)
+    monkeypatch.setattr(tasks_mod, "SessionLocal", lambda: db)
+
