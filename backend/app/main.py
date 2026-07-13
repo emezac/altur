@@ -17,6 +17,7 @@ from app.core.exceptions import (
 )
 from app.api.health import router as health_router
 from app.api.calls import router as calls_router
+from app.api.analytics import router as analytics_router
 
 # Initialize logging immediately upon loading the module
 setup_logging()
@@ -62,6 +63,7 @@ app.add_exception_handler(Exception, global_exception_handler)
 # Register API routers
 app.include_router(health_router, tags=["Health"])
 app.include_router(calls_router, prefix="/api/v1", tags=["Calls"])
+app.include_router(analytics_router, prefix="/api/v1", tags=["Analytics"])
 
 # ── Frontend SPA serving ───────────────────────────────────────────
 _FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "frontend")

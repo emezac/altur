@@ -17,8 +17,9 @@ def test_list_calls_endpoint(client, db):
     response = client.get("/api/v1/calls")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) >= 2
-    filenames = [c["filename"] for c in data]
+    assert "items" in data
+    assert data["total"] >= 2
+    filenames = [c["filename"] for c in data["items"]]
     assert "test_call_A.wav" in filenames
     assert "test_call_B.wav" in filenames
 

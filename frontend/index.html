@@ -54,6 +54,34 @@
   <!-- ── Main Content ──────────────────────────────────────────── -->
   <main class="main" id="main">
 
+    <!-- Top Header & Stats -->
+    <header class="main-header">
+      <div class="header-meta">
+        <h1 class="header-title">Call Analyzer <span class="model-badge">Fake-LLM</span></h1>
+        <p class="header-subtitle">Multimodal sales transcription and audit compliance suite</p>
+      </div>
+      <div id="pollingIndicator" class="polling-indicator" hidden>✦ Real-time Polling Active</div>
+    </header>
+
+    <section class="stats-grid" id="statsRow">
+      <div class="stat-card">
+        <span class="stat-title">TOTAL CALLS</span>
+        <span class="stat-value" id="statTotalCalls">—</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-title">CONVERSION RATE</span>
+        <span class="stat-value" id="statConvRate">—</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-title">POSITIVE SENTIMENT</span>
+        <span class="stat-value" id="statPosSentiment">—</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-title">TOP OBJECTION</span>
+        <span class="stat-value" id="statTopObjection">—</span>
+      </div>
+    </section>
+
     <!-- Welcome / Empty state -->
     <section class="welcome" id="welcome">
       <div class="welcome-inner">
@@ -95,6 +123,7 @@
         </div>
         <div class="detail-actions">
           <button class="btn-icon" id="downloadAudio" title="Download audio" hidden>⬇ Audio</button>
+          <button class="btn-icon" id="exportCallJson" title="Export JSON">⬇ Export JSON</button>
           <button class="btn-icon btn-close" id="closeDetail" title="Close">✕</button>
         </div>
       </header>
@@ -105,90 +134,136 @@
         <p>Processing call… <span id="processingStatus">PENDING</span></p>
       </div>
 
-      <!-- Content grid (shown only when COMPLETED) -->
+      <!-- Failed / Error state card -->
+      <div class="error-card" id="failedState" hidden>
+        <span class="error-icon">⚠</span>
+        <div class="error-info">
+          <h3>Analysis Failed</h3>
+          <p id="errorMessageText">An unknown error occurred during processing.</p>
+        </div>
+        <button class="btn-retry" id="btnRetryCall">Retry Process</button>
+      </div>
+
+      <!-- Content grid (shown only when COMPLETED / FAILED) -->
       <div class="detail-grid" id="detailGrid" hidden>
 
-        <!-- Left column: Audio + Transcript -->
-        <div class="col-left">
-
-          <!-- Audio Player -->
-          <div class="player-card" id="playerCard" hidden>
-            <div class="player-header">
-              <span class="card-title">🎵 Audio Playback</span>
-            </div>
-            <audio class="audio-player" id="audioPlayer" controls preload="metadata"></audio>
-          </div>
-
-          <!-- Transcript -->
-          <div class="transcript-card">
-            <div class="card-header">
-              <span class="card-title">📝 Transcript</span>
-              <div class="card-actions">
-                <button class="btn-pill active" id="viewTurns">Turns</button>
-                <button class="btn-pill" id="viewRaw">Raw text</button>
-              </div>
-            </div>
-            <div class="transcript-body" id="transcriptBody">
-              <!-- Populated by JS -->
-            </div>
-          </div>
-
+        <!-- Tab selection header -->
+        <div class="tabs-header">
+          <button class="tab-btn active" id="btnTabOverview">Overview & Analysis</button>
+          <button class="tab-btn" id="btnTabTranscript">Transcript Timeline</button>
+          <button class="tab-btn" id="btnTabTagging">Sales Tagging & QC</button>
         </div>
 
-        <!-- Right column: Insights + Tags -->
-        <div class="col-right">
-
-          <!-- Summary Card -->
-          <div class="insight-card" id="summaryCard" hidden>
-            <div class="card-header">
-              <span class="card-title">💡 Summary</span>
-            </div>
-            <p class="summary-text" id="summaryText">—</p>
-
-            <!-- Sentiment Meter -->
-            <div class="metric-row">
-              <span class="metric-label">Sentiment</span>
-              <div class="meter-wrap">
-                <div class="meter-bar" id="sentimentBar"></div>
+        <!-- TAB CONTENT 1: OVERVIEW -->
+        <div class="tab-content" id="tabContentOverview">
+          <div class="overview-grid">
+            
+            <div class="insight-card" id="summaryCard">
+              <div class="card-header">
+                <span class="card-title">💡 EXECUTIVE SUMMARY</span>
               </div>
-              <span class="metric-value" id="sentimentValue">—</span>
-            </div>
-
-            <!-- Intent Meter -->
-            <div class="metric-row">
-              <span class="metric-label">Purchase Intent</span>
-              <div class="meter-wrap">
-                <div class="meter-bar intent-bar" id="intentBar"></div>
+              <p class="summary-text" id="summaryText">—</p>
+              
+              <div class="metric-row">
+                <span class="metric-label">Customer Sentiment</span>
+                <div class="meter-wrap">
+                  <div class="meter-bar" id="sentimentBar"></div>
+                </div>
+                <span class="metric-value" id="sentimentValue">—</span>
               </div>
-              <span class="metric-value" id="intentValue">—</span>
-            </div>
-          </div>
 
-          <!-- Key Points -->
-          <div class="insight-card" id="keyPointsCard" hidden>
-            <div class="card-header">
-              <span class="card-title">✅ Key Points</span>
+              <div class="metric-row">
+                <span class="metric-label">Purchase Intent</span>
+                <div class="meter-wrap">
+                  <div class="meter-bar intent-bar" id="intentBar"></div>
+                </div>
+                <span class="metric-value" id="intentValue">—</span>
+              </div>
             </div>
-            <ul class="key-points-list" id="keyPointsList"></ul>
-          </div>
 
-          <!-- Tags -->
-          <div class="insight-card" id="tagsCard" hidden>
-            <div class="card-header">
-              <span class="card-title">🏷️ Tags</span>
+            <div class="insight-card" id="keyPointsCard">
+              <div class="card-header">
+                <span class="card-title">✅ KEY DISCUSSION POINTS</span>
+              </div>
+              <ul class="key-points-list" id="keyPointsList"></ul>
             </div>
-            <div class="tags-grid" id="tagsGrid"></div>
-          </div>
 
-          <!-- Timeline -->
-          <div class="insight-card" id="timelineCard" hidden>
-            <div class="card-header">
-              <span class="card-title">📋 Event Timeline</span>
+            <div class="insight-card" id="prescribedNextCard">
+              <div class="card-header">
+                <span class="card-title">📋 PRESCRIBED ACTION & INSIGHTS</span>
+              </div>
+              <div class="next-step-box">
+                <p><strong>Next Step:</strong> <span id="nextStepText">—</span></p>
+                <div id="inconsistenciesBox" class="inconsistencies-box" hidden>
+                  <p class="inconsistencies-title">⚠ Detected Inconsistencies:</p>
+                  <ul id="inconsistenciesList"></ul>
+                </div>
+              </div>
             </div>
-            <ol class="timeline" id="timeline"></ol>
-          </div>
 
+          </div>
         </div>
+
+        <!-- TAB CONTENT 2: TRANSCRIPT -->
+        <div class="tab-content" id="tabContentTranscript" hidden>
+          <div class="transcript-layout">
+            <div class="transcript-info-banner">
+              Diarization is auto-generated by the STT engine. Click any turn timestamp to seek the audio.
+            </div>
+            
+            <!-- Audio Player -->
+            <div class="player-card" id="playerCard">
+              <audio class="audio-player" id="audioPlayer" controls preload="metadata"></audio>
+            </div>
+
+            <!-- Transcript -->
+            <div class="transcript-card">
+              <div class="card-header">
+                <span class="card-title">📝 Transcript Dialogue</span>
+                <div class="card-actions">
+                  <button class="btn-pill active" id="viewTurns">Turns</button>
+                  <button class="btn-pill" id="viewRaw">Raw text</button>
+                </div>
+              </div>
+              <div class="transcript-body" id="transcriptBody">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB CONTENT 3: TAGGING & QC OVERRIDES -->
+        <div class="tab-content" id="tabContentTagging" hidden>
+          <div class="tagging-layout">
+            <div class="tagging-header-card">
+              <h3>SALES TAGGING SCHEMA & EVALUATION</h3>
+              <p>Audited overrides are written permanently to the audit log. Model tags are preserved for model performance monitoring, while override tags are served in list and analytics metrics.</p>
+            </div>
+            
+            <div class="tag-overrides-container" id="tagOverridesContainer">
+              <!-- Dynamically populated with override card forms -->
+            </div>
+
+            <!-- Read-only Product Interests -->
+            <div class="insight-card product-interests-card">
+              <div class="card-header">
+                <span class="card-title">🏷️ PRODUCT INTERESTS</span>
+              </div>
+              <div class="product-interests-grid" id="productInterestsGrid">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+
+            <!-- Event Timeline (Moved here for better space utilization) -->
+            <div class="insight-card" id="timelineCard">
+              <div class="card-header">
+                <span class="card-title">📋 AUDIT TRAIL / EVENT TIMELINE</span>
+              </div>
+              <ol class="timeline" id="timeline"></ol>
+            </div>
+          </div>
+        </div>
+
       </div>
     </section>
   </main>

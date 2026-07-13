@@ -8,6 +8,7 @@ from app.models.tag import CallTag
 from app.models.event import CallEvent
 from app.services.stt.factory import get_stt_provider
 from app.services.llm.factory import get_llm_provider
+from app.services.state_machine import transition
 from app.workers.queue import get_queue
 
 # Set this to True in tests to prevent tasks from closing an injected session
@@ -26,93 +27,95 @@ def transcribe_call(call_id: str) -> None:
     """
     Retrieves the audio from local/cloud storage, runs transcription via STT provider,
     persists Transcript record, logs events, and enqueues analyze_call.
+
+    Idempotency: uses state_machine.transition() (atomic conditional UPDATE) to guard
+    the PENDING -> TRANSCRIBING transition. If the row is no longer in PENDING state
+    (e.g. a duplicate job delivery), the transition returns False and the task exits
+    immediately -- no extra STT call, no double cost.
     """
-    logger.info(f"Starting transcribe_call task for call_id: {call_id}")
+    logger.info(f"[call_id={call_id}] Starting transcribe_call task")
     db = SessionLocal()
     try:
         call = db.query(Call).filter(Call.id == call_id).first()
         if not call:
-            logger.error(f"Call {call_id} not found in database.")
+            logger.error(f"[call_id={call_id}] Call not found in database -- aborting")
             return
 
-        # Ensure call is in a correct starting state (supports retries from FAILED)
+        # Guard: only PENDING (or FAILED for retry) is a valid starting state
         if call.status not in ("PENDING", "FAILED"):
-            logger.warning(f"Call {call_id} is in status '{call.status}', skipping transcription.")
+            logger.warning(
+                f"[call_id={call_id}] Status is '{call.status}' -- not a valid starting state, "
+                "discarding duplicate job delivery"
+            )
             return
 
-        # 1. Transition call status to TRANSCRIBING
-        old_status = call.status
-        call.status = "TRANSCRIBING"
-        db.add(CallEvent(
-            call_id=call.id,
-            event_type="STATUS_CHANGE",
-            payload={"from_status": old_status, "to_status": "TRANSCRIBING"}
-        ))
-        db.commit()
+        # Atomic transition: if another worker already claimed this call, exit cleanly
+        if not transition(db, call_id, call.status, "TRANSCRIBING"):
+            logger.warning(
+                f"[call_id={call_id}] Transition to TRANSCRIBING rejected -- "
+                "duplicate job delivery, discarding"
+            )
+            return
 
-        # 2. Transcribe audio file
+        # Transcribe audio file
         stt = get_stt_provider()
         result = stt.transcribe(call.storage_path)
 
-        # 3. Persist transcript record
+        # Persist transcript record
         raw_text = " ".join(turn.text for turn in result.turns)
         turns_list = [turn.model_dump() for turn in result.turns]
 
         db_transcript = Transcript(
-            call_id=call.id,
+            call_id=call_id,
             language=result.language,
             raw_text=raw_text,
             turns=turns_list,
             stt_confidence=result.stt_confidence,
             stt_provider=result.provider,
-            stt_model=result.model
+            stt_model=result.model,
         )
         db.add(db_transcript)
+        db.flush()
 
-        # 4. Transition call status to TRANSCRIBED
-        call.status = "TRANSCRIBED"
-        db.add(CallEvent(
-            call_id=call.id,
-            event_type="STATUS_CHANGE",
-            payload={"from_status": "TRANSCRIBING", "to_status": "TRANSCRIBED"}
-        ))
-        db.commit()
-        logger.info(f"Call {call_id} successfully transcribed and set to TRANSCRIBED.")
+        # Atomic transition to TRANSCRIBED
+        if not transition(db, call_id, "TRANSCRIBING", "TRANSCRIBED"):
+            logger.error(
+                f"[call_id={call_id}] Could not transition TRANSCRIBING->TRANSCRIBED "
+                "(concurrent modification). Transcript saved but status inconsistent."
+            )
+            return
 
-        # 5. Enqueue analysis task
+        logger.info(f"[call_id={call_id}] Transcription complete -- enqueuing analysis")
+
+        # Enqueue analysis task
         queue = get_queue()
         queue.enqueue(analyze_call, call_id)
-        logger.info(f"Enqueued analyze_call task for call_id: {call_id}")
 
     except Exception as e:
-        logger.exception(f"Error during transcribe_call task for call_id {call_id}: {e}")
+        logger.exception(f"[call_id={call_id}] Unhandled error in transcribe_call: {e}")
         if _TESTING:
             db.expire_all()
         else:
             db.rollback()
 
-
-        # Error Boundary: Transition status to FAILED and write error details to events log
+        # Error boundary: atomically move to FAILED from whatever current state
         try:
-            # Re-fetch call in case transaction state is discarded
             call = db.query(Call).filter(Call.id == call_id).first()
+            if call and call.status not in ("COMPLETED", "FAILED"):
+                transition(db, call_id, call.status, "FAILED")
+            # Always record the error event regardless of whether transition succeeded
             if call:
-                old_status = call.status
-                call.status = "FAILED"
                 db.add(CallEvent(
-                    call_id=call.id,
-                    event_type="STATUS_CHANGE",
-                    payload={"from_status": old_status, "to_status": "FAILED"}
-                ))
-                db.add(CallEvent(
-                    call_id=call.id,
+                    call_id=call_id,
                     event_type="ERROR",
-                    payload={"step": "TRANSCRIBE", "error": str(e)}
+                    payload={"step": "TRANSCRIBE", "error": str(e)},
                 ))
                 db.commit()
-                logger.info(f"Call {call_id} status updated to FAILED due to exception.")
-        except Exception as status_err:
-            logger.error(f"Failed to record FAILED status for call {call_id}: {status_err}")
+                logger.info(f"[call_id={call_id}] Recorded ERROR event after transcription failure")
+        except Exception as inner_err:
+            logger.error(
+                f"[call_id={call_id}] Failed to record FAILED status after transcription error: {inner_err}"
+            )
     finally:
         if not _TESTING:
             db.close()
@@ -121,43 +124,47 @@ def analyze_call(call_id: str) -> None:
     """
     Retrieves Call and associated Transcript, requests analysis via LLM provider,
     persists Summary and CallTag models, logs events, and transitions status to COMPLETED.
+
+    Idempotency: uses state_machine.transition() for TRANSCRIBED -> ANALYZING so that
+    a redelivered job is discarded without re-invoking the LLM.
     """
-    logger.info(f"Starting analyze_call task for call_id: {call_id}")
+    logger.info(f"[call_id={call_id}] Starting analyze_call task")
     db = SessionLocal()
     try:
         call = db.query(Call).filter(Call.id == call_id).first()
         if not call:
-            logger.error(f"Call {call_id} not found in database.")
+            logger.error(f"[call_id={call_id}] Call not found in database -- aborting")
             return
 
-        # Ensure call is in a correct starting state
+        # Guard: only TRANSCRIBED (or FAILED for retry) is a valid starting state
         if call.status not in ("TRANSCRIBED", "FAILED"):
-            logger.warning(f"Call {call_id} is in status '{call.status}', skipping analysis.")
+            logger.warning(
+                f"[call_id={call_id}] Status is '{call.status}' -- not a valid starting state, "
+                "discarding duplicate job delivery"
+            )
             return
 
         transcript = db.query(Transcript).filter(Transcript.call_id == call_id).first()
         if not transcript:
-            logger.error(f"Transcript record for call {call_id} not found.")
-            call.status = "FAILED"
+            logger.error(f"[call_id={call_id}] Transcript not found -- transitioning to FAILED")
+            transition(db, call_id, call.status, "FAILED")
             db.add(CallEvent(
-                call_id=call.id,
+                call_id=call_id,
                 event_type="ERROR",
-                payload={"step": "ANALYZE", "error": "Transcript record not found"}
+                payload={"step": "ANALYZE", "error": "Transcript record not found"},
             ))
             db.commit()
             return
 
-        # 1. Transition call status to ANALYZING
-        old_status = call.status
-        call.status = "ANALYZING"
-        db.add(CallEvent(
-            call_id=call.id,
-            event_type="STATUS_CHANGE",
-            payload={"from_status": old_status, "to_status": "ANALYZING"}
-        ))
-        db.commit()
+        # Atomic transition: discard duplicate job delivery
+        if not transition(db, call_id, call.status, "ANALYZING"):
+            logger.warning(
+                f"[call_id={call_id}] Transition to ANALYZING rejected -- "
+                "duplicate job delivery, discarding"
+            )
+            return
 
-        # 2. Run LLM Analysis
+        # LLM analysis
         system_prompt = (
             "You are an expert sales call analyzer. Parse the transcription and extract structured "
             "insights including executive summary, key points, sentiment, purchase intent, insights "
@@ -167,90 +174,82 @@ def analyze_call(call_id: str) -> None:
         llm = get_llm_provider()
         raw_analysis = llm.complete_json(system_prompt, transcript.raw_text)
 
-        # 3. Parse JSON response and save results
         parsed = json.loads(raw_analysis)
         summary_data = parsed["summary"]
         tags_data = parsed["tags"]
 
-        # Build a rich insights blob that includes the executive summary and sentiment scores
         insights_blob = {
             "executive_summary": summary_data["executive_summary"],
             "sentiment": summary_data["sentiment"],
             "sentiment_score": summary_data["sentiment_score"],
             "purchase_intent": summary_data["purchase_intent"],
             "intent_score": summary_data["intent_score"],
-            **summary_data["insights"]
+            **summary_data["insights"],
         }
 
         db_summary = Summary(
-            call_id=call.id,
+            call_id=call_id,
             summary_text=summary_data["executive_summary"],
             key_points=summary_data["key_points"],
             insights=insights_blob,
             llm_provider="fake",
             llm_model="fake-llm-1",
-            prompt_version="v1"
+            prompt_version="v1",
         )
         db.add(db_summary)
 
-        # Persist tags as individual EAV rows (one row per tag category)
         tag_rows = [
-            CallTag(call_id=call.id, tag_category="outcome",
+            CallTag(call_id=call_id, tag_category="outcome",
                     tag_value=tags_data["outcome"],
                     confidence=tags_data["outcome_confidence"]),
-            CallTag(call_id=call.id, tag_category="next_step",
+            CallTag(call_id=call_id, tag_category="next_step",
                     tag_value=tags_data["next_step"],
                     confidence=tags_data["next_step_confidence"]),
-            CallTag(call_id=call.id, tag_category="objection",
+            CallTag(call_id=call_id, tag_category="objection",
                     tag_value=tags_data["objection"],
                     confidence=tags_data["objection_confidence"]),
-            CallTag(call_id=call.id, tag_category="compliance_flag",
+            CallTag(call_id=call_id, tag_category="compliance_flag",
                     tag_value=tags_data["compliance_flag"],
                     confidence=1.0),
         ]
         for row in tag_rows:
             db.add(row)
+        db.flush()
 
+        # Atomic transition to COMPLETED
+        if not transition(db, call_id, "ANALYZING", "COMPLETED"):
+            logger.error(
+                f"[call_id={call_id}] Could not transition ANALYZING->COMPLETED "
+                "(concurrent modification). Data saved but status inconsistent."
+            )
+            return
 
-        # 4. Transition call status to COMPLETED
-        call.status = "COMPLETED"
-        db.add(CallEvent(
-            call_id=call.id,
-            event_type="STATUS_CHANGE",
-            payload={"from_status": "ANALYZING", "to_status": "COMPLETED"}
-        ))
-        db.commit()
-        logger.info(f"Call {call_id} successfully analyzed and set to COMPLETED.")
+        logger.info(f"[call_id={call_id}] Analysis complete -- call is COMPLETED")
 
     except Exception as e:
-        logger.exception(f"Error during analyze_call task for call_id {call_id}: {e}")
+        logger.exception(f"[call_id={call_id}] Unhandled error in analyze_call: {e}")
         if _TESTING:
             db.expire_all()
         else:
             db.rollback()
 
-
-        # Error Boundary: Transition status to FAILED and write error details to events log
+        # Error boundary: atomically move to FAILED
         try:
             call = db.query(Call).filter(Call.id == call_id).first()
+            if call and call.status not in ("COMPLETED", "FAILED"):
+                transition(db, call_id, call.status, "FAILED")
             if call:
-                old_status = call.status
-                call.status = "FAILED"
                 db.add(CallEvent(
-                    call_id=call.id,
-                    event_type="STATUS_CHANGE",
-                    payload={"from_status": old_status, "to_status": "FAILED"}
-                ))
-                db.add(CallEvent(
-                    call_id=call.id,
+                    call_id=call_id,
                     event_type="ERROR",
-                    payload={"step": "ANALYZE", "error": str(e)}
+                    payload={"step": "ANALYZE", "error": str(e)},
                 ))
                 db.commit()
-                logger.info(f"Call {call_id} status updated to FAILED due to exception.")
-        except Exception as status_err:
-            logger.error(f"Failed to record FAILED status for call {call_id}: {status_err}")
+                logger.info(f"[call_id={call_id}] Recorded ERROR event after analysis failure")
+        except Exception as inner_err:
+            logger.error(
+                f"[call_id={call_id}] Failed to record FAILED status after analysis error: {inner_err}"
+            )
     finally:
         if not _TESTING:
             db.close()
-

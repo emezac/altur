@@ -10,15 +10,23 @@ class CallUploadResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-class CallListResponse(BaseModel):
+class CallListItem(BaseModel):
     id: str
     filename: str
-    mime_type: str
-    file_size_bytes: int
-    status: str
     uploaded_at: datetime
+    file_size_bytes: int
+    duration_seconds: Optional[float] = None
+    status: str
+    sentiment: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class PaginatedCallsResponse(BaseModel):
+    items: List[CallListItem]
+    page: int
+    page_size: int
+    total: int
+
 
 class TurnSchema(BaseModel):
     speaker: str
@@ -66,6 +74,16 @@ class EventSchema(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class TagOverrideSchema(BaseModel):
+    tag_category: str
+    previous_value: Optional[str] = None
+    new_value: str
+    action: str
+    reason: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
 class CallDetailResponse(BaseModel):
     id: str
     filename: str
@@ -74,11 +92,11 @@ class CallDetailResponse(BaseModel):
     status: str
     duration_seconds: Optional[float] = None
     uploaded_at: datetime
-
+    
     transcript: Optional[TranscriptSchema] = None
     summary: Optional[SummarySchema] = None
     tags: List[TagSchema] = []
+    overrides: List[TagOverrideSchema] = []
     events: List[EventSchema] = []
 
     model_config = ConfigDict(from_attributes=True)
-
