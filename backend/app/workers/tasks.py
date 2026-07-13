@@ -164,7 +164,7 @@ def analyze_call(call_id: str) -> None:
             )
             return
 
-        # LLM analysis
+        # LLM analysis with self-repair (1 retry)
         system_prompt = (
             "You are an expert sales call analyzer. Parse the transcription and extract structured "
             "insights including executive summary, key points, sentiment, purchase intent, insights "
@@ -172,9 +172,67 @@ def analyze_call(call_id: str) -> None:
             "objections, compliance, product interest). Your response must be JSON only."
         )
         llm = get_llm_provider()
-        raw_analysis = llm.complete_json(system_prompt, transcript.raw_text)
+        
+        parsed = None
+        raw_analysis = ""
+        try:
+            raw_analysis = llm.complete_json(system_prompt, transcript.raw_text)
+        except Exception as provider_err:
+            # Infrastructure/provider error -- raise to transition to FAILED
+            raise provider_err
 
-        parsed = json.loads(raw_analysis)
+        try:
+            parsed = json.loads(raw_analysis)
+            if "summary" not in parsed or "tags" not in parsed:
+                raise ValueError("Missing summary or tags root key")
+        except (json.JSONDecodeError, ValueError, KeyError) as first_err:
+            logger.warning(
+                f"[call_id={call_id}] First LLM analysis parse failed: {first_err}. "
+                "Attempting self-repair retry."
+            )
+            try:
+                repair_prompt = system_prompt + " YOUR PREVIOUS ATTEMPT FAILED TO PARSE AS VALID JSON. YOU MUST RETURN VALID JSON ONLY."
+                raw_analysis = llm.complete_json(repair_prompt, transcript.raw_text)
+            except Exception as provider_err:
+                raise provider_err
+
+            try:
+                parsed = json.loads(raw_analysis)
+                if "summary" not in parsed or "tags" not in parsed:
+                    raise ValueError("Missing summary or tags root key in self-repair attempt")
+            except (json.JSONDecodeError, ValueError, KeyError) as second_err:
+                logger.error(
+                    f"[call_id={call_id}] LLM analysis self-repair retry failed: {second_err}. "
+                    "Degrading to needs_review fallback."
+                )
+                parsed = {
+                    "summary": {
+                        "executive_summary": f"Review Required. Raw analysis output failed to parse as valid JSON. Raw content: {raw_analysis}",
+                        "key_points": ["Manual review required."],
+                        "sentiment": "neutral",
+                        "sentiment_score": 0.5,
+                        "purchase_intent": "medium",
+                        "intent_score": 0.5,
+                        "insights": {
+                            "buying_signals": [],
+                            "risks": [],
+                            "inconsistencies": [],
+                            "tone_notes": "JSON parsing failed after self-repair.",
+                            "needs_review": True
+                        }
+                    },
+                    "tags": {
+                        "outcome": "no_decision",
+                        "outcome_confidence": 0.0,
+                        "next_step": "call_again_follow_up",
+                        "next_step_confidence": 0.0,
+                        "objection": "no_objections_raised",
+                        "objection_confidence": 0.0,
+                        "compliance_flag": "none",
+                        "product_interest": []
+                    }
+                }
+
         summary_data = parsed["summary"]
         tags_data = parsed["tags"]
 

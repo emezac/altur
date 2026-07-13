@@ -34,6 +34,7 @@ def get_analytics_summary(
             "by_status": {},
             "conversion_rate": 0.0,
             "sentiment_distribution": {},
+            "top_objection": None,
             "avg_duration_seconds": None,
             "volume_by_day": [],
         }
@@ -56,18 +57,34 @@ def get_analytics_summary(
                 effective[cat] = t
         return effective
 
-    # --- sentiment distribution ---
+    # --- sentiment distribution & conversion rate ---
     sentiment_counts: dict[str, int] = {}
     converted = 0
+    objection_counts: dict[str, int] = {}
+
     for call in all_calls:
         eff = _effective_tags_for(call)
+        
+        # Sentiment
         sent_tag = eff.get("sentiment")
         if sent_tag:
             val = sent_tag.tag_value
             sentiment_counts[val] = sentiment_counts.get(val, 0) + 1
+            
+        # Conversion
         outcome_tag = eff.get("outcome")
-        if outcome_tag and outcome_tag.tag_value in ("converted", "sale_made", "deal_closed"):
+        if outcome_tag and outcome_tag.tag_value in ("converted", "sale_made", "deal_closed", "won_deal_closed"):
             converted += 1
+
+        # Objection tracking
+        obj_tag = eff.get("objection")
+        if obj_tag:
+            val = obj_tag.tag_value
+            objection_counts[val] = objection_counts.get(val, 0) + 1
+
+    # Resolve top objection excluding no_objections_raised
+    real_objections = {k: v for k, v in objection_counts.items() if k != "no_objections_raised"}
+    top_objection = max(real_objections, key=real_objections.get) if real_objections else None
 
     completed = by_status.get("COMPLETED", 0) + by_status.get("DONE", 0)
     conversion_rate = round(converted / total * 100, 2) if total > 0 else 0.0
@@ -89,6 +106,7 @@ def get_analytics_summary(
         "conversion_rate": conversion_rate,
         "converted_calls": converted,
         "sentiment_distribution": sentiment_counts,
+        "top_objection": top_objection,
         "avg_duration_seconds": round(avg_duration, 2) if avg_duration is not None else None,
         "volume_by_day": volume_by_day,
     }
