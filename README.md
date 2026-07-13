@@ -1,48 +1,48 @@
 # Call Analyzer - Altur Take-home
 
-Suite de transcripción de llamadas de ventas, análisis semántico automatizado y control de calidad (QA).
+Sales call transcription suite, automated semantic analysis, and quality assurance (QA) control.
 
 ## 1. Overview & Screenshots
-> 🚧 Se completa en la Fase 7.
+> 🚧 Completed in Phase 7.
 
 ## 2. Architecture
-* **Arquitectura Orientada a Eventos / Desacoplada:** El pipeline asíncrono separa la ingesta (`POST /calls`), la transcripción (STT) y el análisis (LLM) usando una cola de trabajo (RQ) y workers dedicados.
-* **Modos de Ejecución:**
-  * **LOCAL_DEV:** SQLite para base de datos, RQ en modo burst (síncrono `fakeredis`), proveedores `FakeSTT` y `FakeLLM` deterministicos de fixtures y almacenamiento local en disco.
-  * **LOCAL_DOCKER:** PostgreSQL, Redis, proveedores configurados y almacenamiento local.
-  * **CLOUD:** PostgreSQL administrado, Redis administrado, S3 para almacenamiento y APIs reales de OpenAI.
+* **Event-Driven / Decoupled Architecture:** The asynchronous pipeline isolates the ingestion (`POST /calls`), transcription (STT), and analysis (LLM) using a task queue (RQ) and dedicated workers.
+* **Execution Modes:**
+  * **LOCAL_DEV:** SQLite for the database, RQ in burst mode (synchronous `fakeredis`), deterministic `FakeSTT` and `FakeLLM` providers loaded from fixtures, and local disk storage.
+  * **LOCAL_DOCKER:** PostgreSQL, Redis, configured providers, and local disk storage in Docker Compose.
+  * **CLOUD:** Managed PostgreSQL, managed Redis, S3 for storage, and real OpenAI APIs.
 
 ## 3. Quickstart (LOCAL_DEV)
-> 🚧 Se completa en la Fase 10.
+> 🚧 Completed in Phase 10.
 
 ## 4. Running with Docker
-> 🚧 Se completa en la Fase 10.
+> 🚧 Completed in Phase 10.
 
 ## 5. Environment Variables
-El proyecto utiliza un único contrato de variables de entorno configurado mediante Pydantic Settings.
-* Véase [env.example](.env.example) para más detalles.
-> 🚧 Se completa en la Fase 10.
+The project uses a single environment variable contract configured using Pydantic Settings.
+* See [env.example](.env.example) for more details.
+> 🚧 Completed in Phase 10.
 
 ## 6. API Reference
-> 🚧 Se completa en la Fase 2 y 6.
+> 🚧 Completed in Phases 2 and 6.
 
 ## 7. Tagging Schema & Prompt Design
-El analizador utiliza un esquema estructurado de 7 categorías de etiquetas de ventas.
-* Véase [prompt_design.md](docs/prompt_design.md) para detalles del diseño del prompt y evaluación de calidad.
+The analyzer uses a structured scheme of 7 sales tag categories.
+* See [prompt_design.md](docs/prompt_design.md) for details on prompt design and quality evaluation.
 
 ## 8. Testing
-> 🚧 Se completa en la Fase 9.
+> 🚧 Completed in Phase 9.
 
 ## 9. Error Handling & State Machine
-El sistema implementa una máquina de estados para realizar transiciones atómicas y garantizar la idempotencia de las colas.
-* **Estados:** `PENDING ➔ TRANSCRIBING ➔ TRANSCRIBED ➔ ANALYZING ➔ DONE / FAILED`
-> 🚧 Se completa en la Fase 8.
+The system implements a state machine to perform atomic transitions and guarantee task queue idempotency.
+* **States:** `PENDING ➔ TRANSCRIBING ➔ TRANSCRIBED ➔ ANALYZING ➔ DONE / FAILED`
+> 🚧 Completed in Phase 8.
 
 ## 10. Deployment (Heroku)
-> 🚧 Se completa en la Fase 10.
+> 🚧 Completed in Phase 10.
 
 ## 11. Assumptions & Trade-offs
-> 🚧 Se completa en la Fase 10.
+> 🚧 Completed in Phase 10.
 
-## 12. Roadmap (Mejoras Futuras)
-> 🚧 Se completa en la Fase 10.
+## 12. Roadmap (Future Improvements)
+> 🚧 Completed in Phase 10.

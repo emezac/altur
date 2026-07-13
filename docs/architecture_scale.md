@@ -1,9 +1,9 @@
-# Escalabilidad y Arquitectura de Producción
+# Scalability and Production Architecture
 
-## Tabla de Contenido
-1. Cola y Desacoplamiento (RQ vs. Celery)
-2. Estrategia de Dos Entornos (LOCAL_DEV vs. CLOUD)
-3. Cuellos de Botella STT / LLM
-4. Respuestas a Preguntas de Escala del Reto (10,000 llamadas/día, ráfagas de 1,000)
+## Table of Contents
+1. Queue and Decoupling (RQ vs. Celery)
+2. Two-Environment Strategy (LOCAL_DEV vs. CLOUD)
+3. STT / LLM Bottlenecks
+4. Responses to Scale Questions of the Challenge (10,000 calls/day, bursts of 1,000)
 
-> 🚧 Se completa progresivamente a lo largo de las fases (Fases 3, 4 y 10).
+> 🚧 Completed progressively throughout the phases (Phases 3, 4, and 10).

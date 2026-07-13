@@ -1,9 +1,9 @@
 # Testing Strategy
 
-## Tabla de Contenido
-1. Enfoque General de Calidad
-2. Pirámide de Pruebas (Unitarias, Integración, Contrato)
-3. Mocking & Fixtures de Datos
-4. Ejecución de Pruebas en Integración Continua (CI)
+## Table of Contents
+1. General Quality Approach
+2. Test Pyramid (Unit, Integration, Contract)
+3. Mocking & Data Fixtures
+4. Test Execution in Continuous Integration (CI)
 
-> 🚧 Se completa en las Fases 2 y 9.
+> 🚧 Completed in Phases 2 and 9.
