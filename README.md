@@ -202,3 +202,90 @@ To execute tests:
 # From altur/backend/
 PYTHONPATH=. .venv/bin/pytest -v
 ```
+
+---
+
+## 7. Operational Manuals
+
+Two complementary documents cover day-to-day operation and incident response:
+
+### [PLAYBOOK.md](docs/PLAYBOOK.md) — Engineering & Operations Guide
+
+> **Audience:** Engineers who build, configure, or maintain the platform.
+
+Covers the full engineering lifecycle:
+
+- Platform architecture diagram and pipeline walkthrough
+- Environment reference (`LOCAL_DEV` vs `LOCAL_DOCKER` vs production)
+- Provider setup guides (OpenAI Whisper STT, OpenAI/Qwen LLM, S3/MinIO storage)
+- Worker queue operation (RQ + fakeredis in dev, real Redis in Docker)
+- Database migration procedures (`alembic upgrade head`)
+- Common operational workflows (re-ingesting a call, overriding a tag, exporting call data)
+- Docker Compose bring-up and teardown commands
+
+### [RUNBOOK.md](docs/RUNBOOK.md) — Incident Response Guide
+
+> **Audience:** Engineers on-call or responding to production incidents.
+
+Step-by-step diagnostic and recovery procedures organized by failure scenario:
+
+| Code | Scenario |
+|------|---------|
+| RB-01 | Call stuck in `PENDING` |
+| RB-02 | Call stuck in `TRANSCRIBING` or `ANALYZING` |
+| RB-03 | Call in `FAILED` state |
+| RB-04 | Worker not picking up jobs |
+| RB-05 | Database connectivity failure |
+| RB-06 | STT provider error (rate limit / timeout / auth) |
+| RB-07 | LLM provider error (quota / malformed response) |
+| RB-08 | Storage backend failure |
+| RB-09 | High API latency or 5xx errors |
+
+Each runbook entry includes diagnostic commands, a root-cause decision tree, and recovery steps.
+
+---
+
+## 8. Future Improvements / What I'd Improve Given More Time
+
+### 8.1 Predictive Analytics & Operational Intelligence
+
+> Full design: [`docs/predictive_analytics.md`](docs/predictive_analytics.md)
+
+The structured data the platform already persists (transcript turns, sentiment scores, intent scores, tag values, human overrides, per-stage timestamps) is immediately usable as a feature store for predictive models. The planned analytical layer answers four families of questions:
+
+| # | Question | Approach |
+|---|----------|----------|
+| A | **Win probability** — how likely is this prospect to accept? | Propensity model trained on `CallTag` outcomes + `Summary` signals |
+| B | **Loss driver analysis** — what patterns precede a deal loss? | Supervised loss-reason classifier + feature importance |
+| C | **Bot misbehaviour detection** — is the conversational agent going off-script? | Interaction-quality anomaly model over transcript turns |
+| D | **Provider SLO monitoring** — are STT/LLM responding in time? | `CallEvent` latency extraction + alerting thresholds |
+
+Design stance: **LLMs as feature extractors + classical ML for calibrated probability estimates** — not end-to-end LLM prediction, which is expensive and poorly calibrated at scale.
+
+### 8.2 Software Factory — Self-Improving Platform
+
+> Full design: [`docs/software_factory.md`](docs/software_factory.md)
+
+The longer-term roadmap treats Call Analyzer not as a finished product but as a **production line that manufactures its own improvements**. Every request leaves measurable evidence (latency, tag quality, human correction rate, token cost). The factory runs a weekly continuous improvement loop:
+
+```
+MEASURE → ANALYZE → PROPOSE → IMPLEMENT → VERIFY → PROMOTE
+   ▲                                                    │
+   └────────────────────────────────────────────────────┘
+```
+
+Key capabilities in this track:
+
+- **Instrumented measurement points** — per-stage metrics (STT latency, LLM latency, token cost, parse success rate) emitted on every call automatically.
+- **Automated prompt regression CI** — every prompt change runs against the gold set; F1 drops block the merge.
+- **Agent-assisted prompt authoring** — LLM agents draft and evaluate prompt candidates, narrowing human review to judgment calls.
+- **Improvement ledger** — immutable audit of every change with its measured metric delta, making improvements reversible and auditable.
+
+### 8.3 Other Technical Improvements
+
+- **Speaker diarization** — production Whisper Diarization or Deepgram would add speaker labels automatically.
+- **Real-time streaming** — replace status polling with WebSocket push for instant UI updates.
+- **PostgreSQL full-text search** — replace `ILIKE` with `tsvector` indexes for sub-100ms transcript search at scale.
+- **E2E browser tests** — Playwright suite covering the full upload-to-detail user flow.
+- **Authentication** — JWT-based auth with per-user call isolation (`owner_id` column already exists in the schema).
+- **Multi-language STT routing** — auto-detect transcript language and route to the best regional STT model.
