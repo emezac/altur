@@ -4,7 +4,7 @@ from typing import Optional
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, UploadFile, Form, Request, HTTPException, Query
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -260,6 +260,13 @@ def get_call_audio(call_id: str, db: Session = Depends(get_db)):
     storage = get_storage_backend()
     if not storage.exists(call.storage_path):
         raise HTTPException(status_code=404, detail="Audio file not found in storage.")
+
+    # Object storage (S3/MinIO) returns a short-lived presigned URL; redirect the
+    # browser straight to it so the API never streams the audio itself. Local disk
+    # returns None from get_url(), so we serve the file directly.
+    presigned_url = storage.get_url(call.storage_path)
+    if presigned_url:
+        return RedirectResponse(url=presigned_url, status_code=307)
 
     media_type = call.mime_type or "audio/mpeg"
     return FileResponse(call.storage_path, media_type=media_type)

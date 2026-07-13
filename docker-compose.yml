@@ -1,0 +1,145 @@
+# LOCAL_DOCKER environment — production parity: real Postgres + Redis + S3 (MinIO).
+# For low-footprint daily dev use LOCAL_DEV instead (venv + SQLite + fakeredis, no Docker).
+#
+#   docker compose up -d                    # start everything (auto-creates the MinIO bucket)
+#   docker compose run --rm backend alembic upgrade head   # apply migrations
+#   docker compose logs -f backend worker   # tail logs
+#   docker compose down -v                  # stop and wipe data
+#
+# The frontend is vanilla static assets served by FastAPI itself — there is no separate
+# frontend container. The repo's ./frontend is mounted into the backend at /frontend, which
+# is exactly where app/main.py looks for it (../../frontend from app/app/main.py).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: call-analyzer-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: call_analyzer
+      POSTGRES_PASSWORD: call_analyzer
+      POSTGRES_DB: call_analyzer
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U call_analyzer -d call_analyzer"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: call-analyzer-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # S3-compatible object storage for testing STORAGE_BACKEND=s3 without a real AWS account.
+  minio:
+    image: minio/minio:latest
+    container_name: call-analyzer-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot job: creates the audio bucket so `compose up` is turnkey.
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/call-analyzer-audio &&
+      echo 'bucket ready';
+      "
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: call-analyzer-backend
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local_docker
+      DATABASE_URL: postgresql+psycopg://call_analyzer:call_analyzer@postgres:5432/call_analyzer
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      LOCAL_STORAGE_PATH: /data/audio
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-call-analyzer-audio}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      STT_PROVIDER: ${STT_PROVIDER:-fake}
+      LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-docker}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8000}
+    volumes:
+      - ./backend:/app                 # hot reload of backend code
+      - ./frontend:/frontend:ro        # static SPA served by FastAPI (main.py -> ../../frontend)
+      - audio_data:/data/audio
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: call-analyzer-worker
+    restart: unless-stopped
+    command: python -m rq worker -u redis://redis:6379/0
+    environment:
+      APP_ENV: local_docker
+      DATABASE_URL: postgresql+psycopg://call_analyzer:call_analyzer@postgres:5432/call_analyzer
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      LOCAL_STORAGE_PATH: /data/audio
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-call-analyzer-audio}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      STT_PROVIDER: ${STT_PROVIDER:-fake}
+      LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ./backend:/app
+      - audio_data:/data/audio
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  minio_data:
+  audio_data:

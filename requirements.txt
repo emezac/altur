@@ -1,0 +1,3 @@
+# Root requirements for the Heroku Python buildpack — installs the backend deps.
+# The vanilla frontend is static (no Node build step), so only Python is needed.
+-r backend/requirements.txt

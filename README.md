@@ -85,6 +85,38 @@ The application is built around a status-driven, decoupled background worker pip
 6. **Access the Web Application:**
    Open [http://localhost:8000/](http://localhost:8000/) in your web browser.
 
+### Running with Docker (LOCAL_DOCKER — production parity)
+
+For a full production-parity stack (real PostgreSQL + Redis + S3 via MinIO), use Docker Compose. The vanilla frontend is served by FastAPI, so there is **no separate frontend container and no build step**.
+
+```bash
+# From altur/
+docker compose up -d                                   # starts postgres, redis, minio (+ bucket), backend, worker
+docker compose run --rm backend alembic upgrade head   # apply migrations
+# open http://localhost:8000/     (MinIO console: http://localhost:9001, minioadmin/minioadmin)
+docker compose down -v                                 # stop and wipe volumes
+```
+
+To exercise the S3 storage path against MinIO, restart with `STORAGE_BACKEND=s3 docker compose up -d` — uploaded audio is stored as objects and played back through short-lived **presigned URLs** ([`app/services/storage/s3.py`](backend/app/services/storage/s3.py)).
+
+### Deployment to Heroku (CLOUD)
+
+The repo root ships the Heroku artifacts: [`Procfile`](Procfile) (web / worker / release), [`runtime.txt`](runtime.txt), and a root [`requirements.txt`](requirements.txt) that installs the backend. FastAPI serves the static SPA, so only the **Python buildpack** is required.
+
+```bash
+heroku create <app-name>
+heroku buildpacks:add heroku/python
+heroku addons:create heroku-postgresql:essential-0
+heroku addons:create heroku-redis:mini
+heroku config:set APP_ENV=cloud STORAGE_BACKEND=s3 STT_PROVIDER=openai LLM_PROVIDER=openai \
+  OPENAI_API_KEY=sk-... S3_BUCKET_NAME=... S3_REGION=... AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... \
+  SECRET_KEY=$(python -c "import secrets;print(secrets.token_hex(32))")
+git push heroku main
+heroku ps:scale web=1 worker=1
+```
+
+> Heroku exposes Redis over `rediss://` (self-signed TLS); the queue layer already sets `ssl_cert_reqs=None` for that scheme. The `release` process runs `alembic upgrade head` automatically on every deploy.
+
 ---
 
 ## 3. Web SPA Interface
@@ -205,7 +237,21 @@ PYTHONPATH=. .venv/bin/pytest -v
 
 ---
 
-## 7. Operational Manuals
+## 7. Documentation
+
+All project documentation lives in [`docs/`](docs/):
+
+| Document | Purpose |
+|----------|---------|
+| [`PLAYBOOK.md`](docs/PLAYBOOK.md) | Engineering & operations guide (architecture, providers, workflows) |
+| [`RUNBOOK.md`](docs/RUNBOOK.md) | Step-by-step incident response procedures |
+| [`architecture_scale.md`](docs/architecture_scale.md) | Production architecture and scalability strategy |
+| [`prompt_design.md`](docs/prompt_design.md) | Prompt construction, tagging schema, and quality evaluation |
+| [`testing_strategy.md`](docs/testing_strategy.md) | Test architecture, isolation, and coverage strategy |
+| [`predictive_analytics.md`](docs/predictive_analytics.md) | **New** — predictive/analytical model design: win propensity, loss drivers, bot-misbehaviour detection, and provider SLO monitoring with alarms (summarized in §8.1) |
+| [`software_factory.md`](docs/software_factory.md) | **New** — self-improvement strategy: the exact code to instrument as measurement points, automated metric review, and continuous improvement cycles (summarized in §8.2) |
+
+### Operational Manuals
 
 Two complementary documents cover day-to-day operation and incident response:
 

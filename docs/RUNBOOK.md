@@ -40,6 +40,8 @@ curl -s http://localhost:8000/api/v1/calls/<CALL_ID>/status | jq .
 | RB-13 | Complete data export for a call | [§13](#rb-13-complete-data-export-for-a-call) |
 | RB-14 | Manually override a tag | [§14](#rb-14-manually-override-a-tag) |
 
+> **First-time deploy / releases:** see [Deployment Procedure & Credentials Setup](#deployment-procedure--credentials-setup) (Heroku, AWS S3, GitHub credential setup).
+
 ---
 
 ## RB-01 — Call Stuck in PENDING
@@ -540,3 +542,144 @@ cd altur/backend && source .venv/bin/activate && alembic current
 # Tail application logs (local uvicorn)
 uvicorn app.main:app --port 8000 --log-level info 2>&1 | grep -v "^INFO:.*GET /health"
 ```
+
+---
+
+# Deployment Procedure & Credentials Setup
+
+> **Audience:** Whoever performs the first production provisioning or a routine release.
+> **Key principle:** the DEV→PROD switch is **100% environment-variable driven** — there is no code change between environments. Deploying is about setting the right config values, not editing the app. In `LOCAL_DEV` every default resolves to a zero-dependency stack (fake providers, SQLite, inline `fakeredis`, local disk), which is why local runs never hit a credential/config problem; `CLOUD` is the first environment that talks to real external services, so this section is where credentials actually matter.
+
+## DP.0 — Environment model (config, not code)
+
+| Variable | `LOCAL_DEV` default | `CLOUD` (Heroku) value |
+|----------|---------------------|------------------------|
+| `APP_ENV` | `local_dev` | `cloud` |
+| `DATABASE_URL` | `sqlite:///./dev.db` | Postgres URL (set by the Heroku Postgres addon) |
+| `REDIS_URL` | *(empty → `fakeredis`, inline)* | `rediss://…` (set by the Heroku Redis addon) |
+| `STORAGE_BACKEND` | `local` | `s3` |
+| `STT_PROVIDER` / `LLM_PROVIDER` | `fake` | `openai` (or another real provider) |
+| `CORS_ORIGINS` | `http://localhost:5173` | your real app domain (never `*` in prod) |
+| `SECRET_KEY` | `change-me` | a fresh 64-hex random value |
+
+The DB layer already adapts (`sqlite` connect-args vs. Postgres pooling), the queue layer handles `rediss://` TLS, migrations are Postgres-safe (`JSON().with_variant(JSONB, "postgresql")`), and storage/provider selection is by factory — so **no code path is environment-specific beyond reading these variables.**
+
+## DP.1 — Accounts & tools required
+
+- **GitHub** account + this repo pushed (source of truth for deploys).
+- **Heroku** account + [Heroku CLI](https://devcenter.heroku.com/articles/heroku-cli) (`heroku login`).
+- **AWS** account (for the S3 audio bucket) + optionally the AWS CLI.
+- **OpenAI** API key (or the chosen real STT/LLM provider).
+
+## DP.2 — Credentials matrix
+
+| Credential | Purpose | Where to obtain | Where it lives (never in git) |
+|------------|---------|-----------------|-------------------------------|
+| `OPENAI_API_KEY` | Real STT/LLM | platform.openai.com → API keys | Heroku config var |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | S3 upload/playback | AWS IAM user access key (DP.3) | Heroku config var |
+| `S3_BUCKET_NAME` / `S3_REGION` | Target bucket | AWS S3 (DP.3) | Heroku config var |
+| `SECRET_KEY` | App signing | `python -c "import secrets;print(secrets.token_hex(32))"` | Heroku config var |
+| `HEROKU_API_KEY` | CI deploys (optional) | `heroku authorizations:create` | GitHub Actions secret |
+| Heroku `DATABASE_URL` / `REDIS_URL` | Managed DB/queue | Auto-set by addons | Heroku (managed) |
+
+> **Golden rule:** secrets live in the platform's secret store (Heroku config vars, GitHub Actions secrets), **never** in the repo. `.env` is git-ignored and confirmed untracked; keep it that way.
+
+## DP.3 — AWS S3 setup
+
+1. **Create a private bucket** (block all public access) in your region, e.g. `call-analyzer-audio-prod` in `us-east-1`.
+2. **Create a least-privilege IAM user** (programmatic access only) with a policy scoped to *just this bucket*:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Effect": "Allow",
+       "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:ListBucket"],
+       "Resource": [
+         "arn:aws:s3:::call-analyzer-audio-prod",
+         "arn:aws:s3:::call-analyzer-audio-prod/*"
+       ]
+     }]
+   }
+   ```
+3. **Generate an access key** for that user → this yields `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+4. **(Recommended) Lifecycle rule:** expire raw audio objects after 7–30 days (PII minimization — see `architecture_scale.md` §6). The de-identified transcript remains in Postgres.
+5. The bucket stays **private**: playback works via short-lived **presigned GET URLs** (the API 307-redirects to them), so no public ACLs or bucket CORS are needed.
+
+## DP.4 — GitHub setup
+
+1. Push the repo (`altur/` is the repo root). Confirm the secret file is ignored:
+   ```bash
+   git check-ignore .env        # must print ".env"
+   git ls-files | grep -E "(^|/)\.env$"   # must print nothing
+   ```
+2. **Deploy option A (manual):** deploy straight from your machine with the Heroku git remote (DP.5). Simplest; recommended for the take-home.
+3. **Deploy option B (CI/CD):** GitHub Actions on push to `main`. Store `HEROKU_API_KEY` and `HEROKU_APP_NAME` as **GitHub → Settings → Secrets and variables → Actions**, then use a deploy step:
+   ```yaml
+   # .github/workflows/deploy.yml (optional)
+   - uses: akhileshns/heroku-deploy@v3.13.15
+     with:
+       heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+       heroku_app_name: ${{ secrets.HEROKU_APP_NAME }}
+       heroku_email: ${{ secrets.HEROKU_EMAIL }}
+   ```
+   Never echo secrets in workflow logs.
+
+## DP.5 — Heroku setup & first deploy
+
+```bash
+# 1. Authenticate and create the app
+heroku login
+heroku create call-analyzer-altur
+
+# 2. Python buildpack only (frontend is static, served by FastAPI — no Node build)
+heroku buildpacks:add heroku/python
+
+# 3. Managed Postgres + Redis (these auto-set DATABASE_URL and REDIS_URL)
+heroku addons:create heroku-postgresql:essential-0
+heroku addons:create heroku-redis:mini
+
+# 4. Set config vars (the DEV→PROD switch). Replace placeholders with real values.
+heroku config:set \
+  APP_ENV=cloud \
+  STORAGE_BACKEND=s3 \
+  STT_PROVIDER=openai LLM_PROVIDER=openai \
+  OPENAI_API_KEY=sk-... \
+  S3_BUCKET_NAME=call-analyzer-audio-prod S3_REGION=us-east-1 \
+  AWS_ACCESS_KEY_ID=AKIA... AWS_SECRET_ACCESS_KEY=... \
+  CORS_ORIGINS=https://call-analyzer-altur.herokuapp.com \
+  SECRET_KEY=$(python -c "import secrets;print(secrets.token_hex(32))")
+
+# 5. Deploy. The `release` process runs `alembic upgrade head` automatically.
+git push heroku main
+
+# 6. Scale one web dyno and one worker dyno
+heroku ps:scale web=1 worker=1
+```
+
+> **Note (`S3_ENDPOINT_URL`):** leave it **unset** for real AWS. It is only for the local MinIO in docker-compose (`http://minio:9000`).
+
+## DP.6 — Post-deploy verification
+
+```bash
+heroku open                                            # loads the SPA
+curl -s https://<app>.herokuapp.com/health             # {"status":"ok","db":true,"queue":true}
+curl -s https://<app>.herokuapp.com/api/v1/calls       # paginated list responds
+heroku logs --tail                                     # watch the release migration + first requests
+```
+Then upload an audio through the UI and confirm it reaches `COMPLETED` and the audio player streams from the presigned URL.
+
+## DP.7 — Security checklist
+
+- [ ] `.env` git-ignored and untracked (verified in DP.4).
+- [ ] AWS IAM key scoped to the single bucket (DP.3), not an admin key.
+- [ ] `CORS_ORIGINS` set to the real domain, **not** `*`.
+- [ ] `SECRET_KEY` is a fresh random value, not `change-me`.
+- [ ] S3 bucket blocks all public access; raw-audio lifecycle expiry enabled.
+- [ ] Rotate `OPENAI_API_KEY` / AWS keys periodically; rotation = `heroku config:set` (triggers a restart).
+
+## DP.8 — Routine releases & rollback
+
+```bash
+git push heroku main         # release phase re-runs migrations automatically
+```
+To roll back a bad deploy, see **[RB-12 — Roll back a bad deploy](#rb-12-roll-back-a-bad-deploy)**.

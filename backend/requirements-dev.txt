@@ -6,6 +6,7 @@ fakeredis
 rq>=1.16.0
 openai
 boto3
+moto>=5
 python-magic
 ffmpeg-python
 # webrtcvad (optional, requires compiler)
