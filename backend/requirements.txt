@@ -7,3 +7,4 @@ pydantic-settings
 python-multipart
 gunicorn
 psycopg[binary]
+openai>=1.0.0

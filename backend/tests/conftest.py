@@ -13,6 +13,23 @@ from app.main import app
 DATABASE_URL = "sqlite:///:memory:"
 
 @pytest.fixture(autouse=True)
+def force_fake_providers(monkeypatch):
+    """
+    Pins STT/LLM to the deterministic fake providers regardless of what the local
+    .env sets (e.g. LLM_PROVIDER=qwen for dev), and resets the factory singletons
+    so no real network provider leaks between tests.
+    """
+    monkeypatch.setattr(settings, "STT_PROVIDER", "fake")
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "fake")
+
+    import app.services.llm.factory as llm_factory
+    import app.services.stt.factory as stt_factory
+    monkeypatch.setattr(llm_factory, "_llm_instance", None)
+    monkeypatch.setattr(stt_factory, "_stt_instance", None)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def mock_storage_path(monkeypatch):
     """
     Redirects LOCAL_STORAGE_PATH to a temporary folder during tests

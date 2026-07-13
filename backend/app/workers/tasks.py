@@ -10,6 +10,57 @@ from app.services.stt.factory import get_stt_provider
 from app.services.llm.factory import get_llm_provider
 from app.services.state_machine import transition
 from app.workers.queue import get_queue
+from app.core.config import settings
+from app.schemas.tag_schema import TagCategory, ALLOWED_VALUES
+
+
+def _build_analysis_system_prompt() -> str:
+    """
+    Builds the analysis system prompt with an explicit output schema. The allowed
+    enum values are derived from tag_schema.ALLOWED_VALUES so the prompt never
+    drifts from the validation layer. Real LLMs (OpenAI, Qwen) need the exact
+    nested envelope spelled out — the fake fixtures happened to match it, which
+    hid the requirement.
+    """
+    def opts(category: TagCategory) -> str:
+        return " | ".join(sorted(ALLOWED_VALUES[category]))
+
+    return (
+        "You are an expert sales-call analyzer. Read the transcript and return your "
+        "analysis.\n"
+        "Return ONLY a single JSON object (no markdown, no code fences) that matches "
+        "EXACTLY this schema:\n"
+        "{\n"
+        '  "summary": {\n'
+        '    "executive_summary": string,\n'
+        '    "key_points": [string, ...],\n'
+        f'    "sentiment": one of [{opts(TagCategory.SENTIMENT)}],\n'
+        '    "sentiment_score": number between 0 and 1,\n'
+        f'    "purchase_intent": one of [{opts(TagCategory.INTENT_LEVEL)}],\n'
+        '    "intent_score": number between 0 and 1,\n'
+        '    "insights": {\n'
+        '      "buying_signals": [string, ...],\n'
+        '      "risks": [string, ...],\n'
+        '      "inconsistencies": [string, ...],\n'
+        '      "tone_notes": string\n'
+        "    }\n"
+        "  },\n"
+        '  "tags": {\n'
+        f'    "outcome": one of [{opts(TagCategory.OUTCOME)}],\n'
+        '    "outcome_confidence": number between 0 and 1,\n'
+        f'    "next_step": one of [{opts(TagCategory.NEXT_STEP)}],\n'
+        '    "next_step_confidence": number between 0 and 1,\n'
+        f'    "objection": one of [{opts(TagCategory.OBJECTION_TYPE)}],\n'
+        '    "objection_confidence": number between 0 and 1,\n'
+        f'    "compliance_flag": one of [{opts(TagCategory.COMPLIANCE_FLAG)}],\n'
+        '    "product_interest": [string, ...]\n'
+        "  }\n"
+        "}\n"
+        'The "summary" and "tags" root keys are REQUIRED. Use only the allowed enum '
+        "values verbatim. Detect the transcript language and write the summary in that "
+        "language. Do not silently correct numeric inconsistencies — record them under "
+        '"inconsistencies" instead.'
+    )
 
 # Set this to True in tests to prevent tasks from closing an injected session
 _TESTING = False
@@ -165,12 +216,7 @@ def analyze_call(call_id: str) -> None:
             return
 
         # LLM analysis with self-repair (1 retry)
-        system_prompt = (
-            "You are an expert sales call analyzer. Parse the transcription and extract structured "
-            "insights including executive summary, key points, sentiment, purchase intent, insights "
-            "(buying signals, risks, inconsistencies, tone notes) and sales tags (outcome, next step, "
-            "objections, compliance, product interest). Your response must be JSON only."
-        )
+        system_prompt = _build_analysis_system_prompt()
         llm = get_llm_provider()
         
         parsed = None
@@ -245,13 +291,19 @@ def analyze_call(call_id: str) -> None:
             **summary_data["insights"],
         }
 
+        llm_provider = (settings.LLM_PROVIDER or "fake").lower()
+        llm_model = {
+            "openai": settings.OPENAI_LLM_MODEL,
+            "qwen": settings.QWEN_MODEL,
+        }.get(llm_provider, "fake-llm-1")
+
         db_summary = Summary(
             call_id=call_id,
             summary_text=summary_data["executive_summary"],
             key_points=summary_data["key_points"],
             insights=insights_blob,
-            llm_provider="fake",
-            llm_model="fake-llm-1",
+            llm_provider=llm_provider,
+            llm_model=llm_model,
             prompt_version="v1",
         )
         db.add(db_summary)

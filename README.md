@@ -45,7 +45,32 @@ The application is built around a status-driven, decoupled background worker pip
    LOCAL_STORAGE_PATH=data/audio
    REDIS_URL=
    CORS_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
+
+   # LLM/STT providers — swappable via factory (see below)
+   STT_PROVIDER=fake            # fake | openai
+   LLM_PROVIDER=fake            # fake | openai | qwen
    ```
+
+   **Pluggable LLM providers.** The analysis LLM is selected at runtime by
+   `LLM_PROVIDER` through `app/services/llm/factory.py`:
+
+   * `fake` — deterministic fixtures, no network/keys (default for tests).
+   * `openai` — **production default**. Set `OPENAI_API_KEY` and optionally `OPENAI_LLM_MODEL` (default `gpt-4o-mini`).
+   * `qwen` — **development**. Alibaba Qwen via the DashScope OpenAI-compatible
+     endpoint. Set:
+     ```env
+     LLM_PROVIDER=qwen
+     QWEN_TOKEN=sk-...
+     QWEN_MODEL=qwen3.7-plus
+     QWEN_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+     QWEN_ENABLE_THINKING=false   # true = deep-thinking (streams reasoning_content)
+     ```
+     Qwen's `-plus`/`-max` tiers are deep-thinking models: the provider always
+     streams and keeps only the visible `content` (discarding `reasoning_content`),
+     then strips any ```` ```json ```` fences before returning the JSON.
+
+   Adding another provider is a single class implementing `LLMProvider.complete_json`
+   plus one branch in the factory — no changes to the worker pipeline.
 
 4. **Execute Database Migrations:**
    ```bash

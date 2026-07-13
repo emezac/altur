@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     OPENAI_STT_MODEL: str = "whisper-1"
     OPENAI_LLM_MODEL: str = "gpt-4o-mini"
 
+    # Qwen (Alibaba DashScope, OpenAI-compatible endpoint) — used for local dev
+    QWEN_TOKEN: Optional[str] = None
+    QWEN_MODEL: str = "qwen3.7-plus"
+    QWEN_BASE_URL: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    # qwen3.x "-plus"/"-max" are deep-thinking models; when enabled DashScope
+    # streams a separate reasoning_content channel and requires stream=True.
+    QWEN_ENABLE_THINKING: bool = False
+
     # --- Feature Flags ---
     ENABLE_VAD_CHUNKING: bool = False
     ENABLE_PII_REDACTION: bool = False
