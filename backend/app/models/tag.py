@@ -20,7 +20,7 @@ class CallTag(Base):
         default=lambda: datetime.now(timezone.utc)
     )
 
-    # Relaciones
+    # Relationships
     call: Mapped["Call"] = relationship(back_populates="tags")
 
 class CallTagOverride(Base):
@@ -38,5 +38,5 @@ class CallTagOverride(Base):
         default=lambda: datetime.now(timezone.utc)
     )
 
-    # Relaciones
+    # Relationships
     call: Mapped["Call"] = relationship(back_populates="overrides")

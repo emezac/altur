@@ -11,7 +11,7 @@ def check_redis() -> bool:
         return True
     try:
         import redis
-        # Timeout corto de 1 segundo para no colgar la petición
+        # Short timeout of 1 second to avoid blocking the request
         r = redis.Redis.from_url(settings.REDIS_URL, socket_connect_timeout=1)
         return r.ping()
     except Exception:
@@ -30,7 +30,7 @@ def health_check(db: Session = Depends(get_db)):
     
     status_code = 200
     if not db_ok or not queue_ok:
-        # En caso de fallo de algún componente crítico, podemos retornar 503
+        # In case of failure of any critical component, we return a 503
         status_code = 503
         
     return {

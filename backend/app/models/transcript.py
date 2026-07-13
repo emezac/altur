@@ -22,5 +22,5 @@ class Transcript(Base):
         default=lambda: datetime.now(timezone.utc)
     )
 
-    # Relaciones
+    # Relationships
     call: Mapped["Call"] = relationship(back_populates="transcript")

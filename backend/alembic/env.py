@@ -7,7 +7,7 @@ from sqlalchemy import pool
 
 from alembic import context
 
-# Añadir el directorio raíz de la aplicación a sys.path
+# Add the application root directory to sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.config import settings
@@ -17,7 +17,7 @@ from app.models import Base
 # access to the values within the .ini file in use.
 config = context.config
 
-# Sobrescribir la URL de conexión de alembic con la configurada en settings
+# Override the alembic connection URL with the one configured in settings
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # Interpret the config file for Python logging.
@@ -47,7 +47,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        render_as_batch=True,  # Necesario para alter tables seguras en SQLite
+        render_as_batch=True,  # Required for safe alter tables in SQLite
     )
 
     with context.begin_transaction():
@@ -61,7 +61,7 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    # Si la conexión ya está en el context (ej. si se corre programáticamente desde tests), usar esa
+    # If connection already in context (e.g. running programmatically from tests), use it
     connectable = context.config.attributes.get("connection", None)
     
     if connectable is None:
@@ -75,7 +75,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection, 
             target_metadata=target_metadata,
-            render_as_batch=True,  # Necesario para alter tables seguras en SQLite
+            render_as_batch=True,  # Required for safe alter tables in SQLite
         )
 
         with context.begin_transaction():

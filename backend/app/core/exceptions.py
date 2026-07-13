@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class AppError(Exception):
     """
-    Excepción base para errores controlados de la aplicación.
+    Base exception for controlled application errors.
     """
     def __init__(self, code: str, message: str, status_code: int = 400):
         self.code = code
@@ -19,7 +19,7 @@ class AppError(Exception):
 
 async def app_error_handler(request: Request, exc: AppError):
     """
-    Manejador para errores controlados AppError.
+    Handler for controlled AppError exceptions.
     """
     req_id = request_id_ctx.get() or str(uuid.uuid4())
     return JSONResponse(
@@ -35,7 +35,7 @@ async def app_error_handler(request: Request, exc: AppError):
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """
-    Manejador para errores de validación de esquemas (Pydantic / FastAPI).
+    Handler for schema validation errors (Pydantic / FastAPI).
     """
     req_id = request_id_ctx.get() or str(uuid.uuid4())
     errors = exc.errors()
@@ -45,7 +45,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         msg = error.get("msg", "")
         error_details.append(f"{loc}: {msg}")
     
-    message = "Errores de validación: " + "; ".join(error_details)
+    message = "Validation errors: " + "; ".join(error_details)
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
@@ -59,16 +59,16 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 async def global_exception_handler(request: Request, exc: Exception):
     """
-    Manejador para capturar cualquier excepción no controlada y evitar fugas de stack trace.
+    Global exception handler to capture any unhandled exceptions and prevent stack trace leaks.
     """
     req_id = request_id_ctx.get() or str(uuid.uuid4())
-    logger.exception(f"Excepción no controlada detectada en la petición: {exc}")
+    logger.exception(f"Unhandled exception detected in request: {exc}")
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "error": {
                 "code": "INTERNAL_SERVER_ERROR",
-                "message": "Ha ocurrido un error interno inesperado.",
+                "message": "An unexpected internal server error occurred.",
                 "request_id": req_id
             }
         }

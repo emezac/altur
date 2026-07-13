@@ -28,7 +28,7 @@ class Call(Base):
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
 
-    # Relaciones
+    # Relationships
     transcript: Mapped[Optional["Transcript"]] = relationship(
         back_populates="call", 
         uselist=False, 

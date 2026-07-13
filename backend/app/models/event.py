@@ -17,5 +17,5 @@ class CallEvent(Base):
         default=lambda: datetime.now(timezone.utc)
     )
 
-    # Relaciones
+    # Relationships
     call: Mapped["Call"] = relationship(back_populates="events")

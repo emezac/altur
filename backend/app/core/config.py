@@ -2,13 +2,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 class Settings(BaseSettings):
-    # --- Entorno ---
+    # --- Environment ---
     APP_ENV: str = "local_dev"
 
-    # --- Base de Datos ---
+    # --- Database ---
     DATABASE_URL: str = "sqlite:///./dev.db"
 
-    # --- Cola ---
+    # --- Queue ---
     REDIS_URL: Optional[str] = None
 
     # --- Storage ---
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
 
-    # --- Proveedores ---
+    # --- Providers ---
     STT_PROVIDER: str = "fake"
     LLM_PROVIDER: str = "fake"
     OPENAI_API_KEY: Optional[str] = None
@@ -33,11 +33,11 @@ class Settings(BaseSettings):
     MAX_UPLOAD_MB: int = 100
     FAKE_PROCESSING_DELAY_SECONDS: float = 2.0
 
-    # --- Seguridad / App ---
+    # --- Security / App ---
     SECRET_KEY: str = "change-me"
     CORS_ORIGINS: str = "http://localhost:5173"
 
-    # Buscar el archivo .env tanto en el directorio actual como en el padre
+    # Search for the .env file both in the current directory and the parent directory
     model_config = SettingsConfigDict(
         env_file=("../.env", ".env"),
         env_file_encoding="utf-8",

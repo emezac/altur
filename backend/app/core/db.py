@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from app.core.config import settings
 
-# Determinar si es SQLite para aplicar argumentos específicos de concurrencia
+# Determine if SQLite to apply specific concurrency arguments
 connect_args = {}
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
@@ -10,7 +10,7 @@ if settings.DATABASE_URL.startswith("sqlite"):
 engine = create_engine(
     settings.DATABASE_URL,
     connect_args=connect_args,
-    pool_pre_ping=True  # Verifica si la conexión está viva antes de usarla
+    pool_pre_ping=True  # Verify if the connection is alive before using it
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -14,14 +14,14 @@ from app.core.exceptions import (
 )
 from app.api.health import router as health_router
 
-# Inicializar logging inmediatamente al cargar el módulo
+# Initialize logging immediately upon loading the module
 setup_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Lógica de inicio (si se requiere)
+    # Startup logic (if required)
     yield
-    # Lógica de apagado (si se requiere)
+    # Shutdown logic (if required)
 
 app = FastAPI(
     title="Call Analyzer API",
@@ -31,7 +31,7 @@ app = FastAPI(
     redoc_url=None
 )
 
-# Middleware de rastreo de peticiones (Request Tracing)
+# Request tracing middleware
 @app.middleware("http")
 async def add_request_id(request: Request, call_next):
     req_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
@@ -40,7 +40,7 @@ async def add_request_id(request: Request, call_next):
     response.headers["X-Request-ID"] = req_id
     return response
 
-# Configuración de CORS
+# CORS configuration
 origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
 app.add_middleware(
     CORSMiddleware,
@@ -50,10 +50,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Registrar manejadores de excepciones personalizados
+# Register custom exception handlers
 app.add_exception_handler(AppError, app_error_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, global_exception_handler)
 
-# Registrar routers de la API
+# Register API routers
 app.include_router(health_router, tags=["Health"])

@@ -4,13 +4,13 @@ import json
 import sys
 from app.core.config import settings
 
-# Variables de contexto asíncronas para rastreo
+# Async context variables for tracing request and call identifiers
 request_id_ctx = contextvars.ContextVar("request_id", default="")
 call_id_ctx = contextvars.ContextVar("call_id", default="")
 
 class StructuredJSONFormatter(logging.Formatter):
     """
-    Formateador de logs en formato JSON para entornos de producción/cloud.
+    JSON log formatter for production/cloud environments.
     """
     def format(self, record):
         log_entry = {
@@ -27,7 +27,7 @@ class StructuredJSONFormatter(logging.Formatter):
 
 class CleanTextFormatter(logging.Formatter):
     """
-    Formateador de texto limpio y legible para desarrollo local.
+    Clean and readable text formatter for local development.
     """
     def format(self, record):
         req_id = request_id_ctx.get()
@@ -44,7 +44,7 @@ class CleanTextFormatter(logging.Formatter):
 def setup_logging():
     root_logger = logging.getLogger()
     
-    # Limpiar handlers existentes
+    # Clear existing handlers
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
         
@@ -59,7 +59,7 @@ def setup_logging():
         
     root_logger.addHandler(handler)
     
-    # Evitar logs ruidosos de terceros en DEBUG
+    # Avoid noisy logs from third-party libraries in DEBUG mode
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("aiosqlite").setLevel(logging.WARNING)
