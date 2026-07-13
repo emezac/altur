@@ -1,0 +1,21 @@
+{
+  "language": "es",
+  "stt_confidence": 0.95,
+  "turns": [
+    {"speaker": "agent", "start": 0.70, "end": 5.08, "text": "Buenos días, soy Laura de Nube Ventas. ¿Hablo con Carlos?"},
+    {"speaker": "customer", "start": 5.40, "end": 8.51, "text": "Sí, soy Carlos. Tengo unos minutos."},
+    {"speaker": "agent", "start": 8.93, "end": 17.19, "text": "Gracias. Vi que solicitaste información sobre nuestro plan Pro para administrar prospectos y seguimiento comercial."},
+    {"speaker": "customer", "start": 17.51, "end": 27.09, "text": "Correcto. Somos un equipo de cinco vendedores y buscamos organizar los contactos, las tareas y los reportes en un solo lugar."},
+    {"speaker": "agent", "start": 27.51, "end": 35.62, "text": "El plan Pro incluye automatización de recordatorios, panel de ventas, reportes semanales y soporte por chat."},
+    {"speaker": "customer", "start": 35.94, "end": 42.25, "text": "Eso cubre lo que necesito. ¿El precio es de mil cuatrocientos noventa pesos al mes?"},
+    {"speaker": "agent", "start": 42.67, "end": 48.98, "text": "Correcto, más IVA, sin plazo forzoso. También tienes catorce días de prueba."},
+    {"speaker": "customer", "start": 49.30, "end": 51.89, "text": "Perfecto. Me interesa avanzar."},
+    {"speaker": "agent", "start": 52.31, "end": 59.47, "text": "Excelente. Agendemos una demostración para el martes dieciséis de julio a las diez de la mañana."},
+    {"speaker": "customer", "start": 59.79, "end": 63.21, "text": "Sí, confirmado. Ese horario me funciona."},
+    {"speaker": "agent", "start": 63.63, "end": 70.45, "text": "Te enviaré la invitación y una guía breve antes de la reunión. ¿Hay algo más que quieras revisar?"},
+    {"speaker": "customer", "start": 70.77, "end": 74.47, "text": "No, con eso es suficiente. Muchas gracias."},
+    {"speaker": "agent", "start": 74.89, "end": 78.43, "text": "Gracias a ti, Carlos. Nos vemos el martes."}
+  ],
+  "provider": "fake",
+  "model": "fake-stt-1"
+}

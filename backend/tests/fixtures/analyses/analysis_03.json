@@ -1,0 +1,45 @@
+{
+  "summary": {
+    "executive_summary": "Maya Chen from SignalDesk met with Daniel to discuss support automation for a team processing 18,000 tickets monthly across email, chat, and WhatsApp. Daniel's key requirements include multilingual routing (English, Spanish, Portuguese), EU data residency, SOC 2 Type II compliance, and a budget cap of $3,800/month for 250 seats. Maya proposes a 15% pilot discount bringing the monthly cost to $3,825, and commits to checking with her director on the remaining gap. A technical workshop is scheduled for Thursday, July 23rd at 2:30 PM Eastern, pending security review completion.",
+    "key_points": [
+      "Volume: 18,000 tickets per month across email, chat, and WhatsApp.",
+      "Weekend first response time of 11 hours is a critical pain point.",
+      "Multilingual routing required: English, Spanish, and Portuguese.",
+      "EU data residency and SOC 2 Type II report are mandatory legal requirements.",
+      "Budget cap: $3,800/month. Standard rate: $4,500 (250 seats × $18). Pilot discount: $3,825.",
+      "Technical workshop scheduled: Thursday July 23rd at 2:30 PM Eastern.",
+      "VP of Finance holds final purchasing authority; security questionnaire must clear first.",
+      "Customer provided fictional alias and internal reference code."
+    ],
+    "sentiment": "mixed",
+    "sentiment_score": 0.85,
+    "purchase_intent": "high",
+    "intent_score": 0.90,
+    "insights": {
+      "buying_signals": [
+        "Customer voluntarily scheduled a technical workshop.",
+        "Customer stated all three conditions: security, price, and Portuguese routing — will recommend moving forward.",
+        "Customer appreciated honesty about unconfirmed WhatsApp media handling."
+      ],
+      "risks": [
+        "VP of Finance holds final purchasing authority.",
+        "Security questionnaire is a blocker before any commitment.",
+        "$25 price gap between pilot discount ($3,825) and budget cap ($3,800) remains unresolved."
+      ],
+      "inconsistencies": [
+        "Agent describes a 'seventy-five dollar gap' but $3,825 vs the $3,800 cap is a $25 difference."
+      ],
+      "tone_notes": "Professional and structured throughout. Customer was firm on budget and compliance requirements. Agent handled uncertainty around WhatsApp attachment handling honestly."
+    }
+  },
+  "tags": {
+    "outcome": "follow_up_scheduled",
+    "outcome_confidence": 0.95,
+    "next_step": "demo_scheduled",
+    "next_step_confidence": 0.90,
+    "objection": "price_budget",
+    "objection_confidence": 0.85,
+    "compliance_flag": "none",
+    "product_interest": ["Enterprise Plan", "Multilingual Routing", "Security Pack"]
+  }
+}

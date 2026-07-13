@@ -1,0 +1,30 @@
+{
+  "language": "es",
+  "stt_confidence": 0.93,
+  "turns": [
+    {"speaker": "agent", "start": 0.90, "end": 9.70, "text": "Hola, habla Mariana de Altura CRM. Esta llamada puede ser revisada con fines de calidad. ¿Hablo con Roberto?"},
+    {"speaker": "customer", "start": 10.05, "end": 15.38, "text": "Sí, pero estoy en la calle y hay bastante ruido. Tengo poco tiempo."},
+    {"speaker": "agent", "start": 15.63, "end": 24.67, "text": "Entiendo. Seré breve. Nos comentaste que necesitas integrar ventas con tu sistema de inventario y mejorar los reportes."},
+    {"speaker": "customer", "start": 24.97, "end": 33.64, "text": "Sí. Hoy usamos hojas de cálculo y también estamos comparando con Competidor Uno. Su precio parece más bajo."},
+    {"speaker": "agent", "start": 33.37, "end": 43.54, "text": "Nuestro plan Empresa cuesta cuatro mil novecientos pesos mensuales e incluye analítica avanzada e integración con el sistema de inventario."},
+    {"speaker": "customer", "start": 43.84, "end": 52.60, "text": "Espera, cuatro mil novecientos sigue siendo mucho para nosotros. No quiero otra herramienta que el equipo deje de usar."},
+    {"speaker": "agent", "start": 52.90, "end": 62.05, "text": "La preocupación es válida. Podemos iniciar con una prueba controlada para dos usuarios y medir adopción antes de ampliar."},
+    {"speaker": "customer", "start": 62.31, "end": 69.94, "text": "Eso suena mejor, aunque yo no autorizo la compra. La decisión final la toma mi directora financiera."},
+    {"speaker": "agent", "start": 70.25, "end": 74.36, "text": "¿Qué información necesita ella para evaluar la propuesta?"},
+    {"speaker": "customer", "start": 74.61, "end": 82.42, "text": "Costo total, seguridad de datos, tiempo de implementación y una comparación clara contra Competidor Uno."},
+    {"speaker": "agent", "start": 82.72, "end": 90.03, "text": "Perfecto. Prepararé una propuesta con esos cuatro puntos y un escenario de retorno de inversión."},
+    {"speaker": "customer", "start": 90.28, "end": 105.24, "text": "Anota un dato de prueba. Mi correo ficticio es roberto punto demo arroba ejemplo punto com, y el teléfono ficticio es cincuenta y cinco, cero uno, cero dos, cero tres, cero cuatro."},
+    {"speaker": "agent", "start": 105.54, "end": 115.40, "text": "De acuerdo. No necesito datos bancarios ni contraseñas. Solo usaré esos datos ficticios para enviar la propuesta de prueba."},
+    {"speaker": "customer", "start": 115.65, "end": 123.05, "text": "Bien. Estoy algo molesto porque el proveedor anterior tardó tres semanas y luego dejó de responder."},
+    {"speaker": "agent", "start": 123.35, "end": 132.82, "text": "Lamento esa experiencia. Nuestro tiempo estimado de implementación es de cinco días hábiles y tendrás un responsable asignado."},
+    {"speaker": "customer", "start": 133.07, "end": 137.33, "text": "Eso me interesa. Déjame revisar mi agenda un momento."},
+    {"speaker": "agent", "start": 140.63, "end": 143.00, "text": "¿Roberto, sigues en la llamada?"},
+    {"speaker": "customer", "start": 143.50, "end": 151.19, "text": "Sí, perdón, se cortó un poco. El jueves a las cuatro de la tarde puedo hablar con mi directora."},
+    {"speaker": "agent", "start": 151.44, "end": 161.15, "text": "Entonces enviaré hoy la propuesta y te llamaré el jueves a las cuatro. La objeción de precio queda pendiente para revisarla con ella."},
+    {"speaker": "customer", "start": 161.00, "end": 167.64, "text": "Correcto, pero no prometo que aprobemos la compra. Necesitamos ver los números primero."},
+    {"speaker": "agent", "start": 167.94, "end": 174.32, "text": "Entendido. Gracias por tu tiempo. Queda agendado el seguimiento para el jueves."},
+    {"speaker": "customer", "start": 174.67, "end": 177.12, "text": "Gracias. Espero la propuesta."}
+  ],
+  "provider": "fake",
+  "model": "fake-stt-1"
+}

@@ -45,6 +45,30 @@ def test_upload_call_success(client, db):
     with storage.open(db_call.storage_path) as f:
         assert f.read() == file_content
 
+def test_upload_call_enqueues_task(client, db):
+    # Simulate a valid WAV file upload and mock get_queue to inspect the enqueued job
+    file_content = b"RIFF\x24\x08\x00\x00WAVEfmt " + b"\x00" * 100
+    file_name = "test_call_queue.wav"
+    
+    with patch("app.api.calls.get_queue") as mock_get_queue:
+        from rq import Queue
+        import fakeredis
+        fake_conn = fakeredis.FakeStrictRedis()
+        test_queue = Queue("default", connection=fake_conn, is_async=True)
+        mock_get_queue.return_value = test_queue
+        
+        response = client.post(
+            "/api/v1/calls",
+            files={"file": (file_name, io.BytesIO(file_content), "audio/wav")}
+        )
+        assert response.status_code == 202
+        
+        # Verify job is in the queue
+        jobs = test_queue.get_jobs()
+        assert len(jobs) == 1
+        assert jobs[0].func_name == "app.workers.tasks.transcribe_call"
+        assert jobs[0].args[0] == response.json()["call_id"]
+
 def test_upload_call_invalid_extension(client):
     file_content = b"RIFF\x24\x08\x00\x00WAVEfmt "
     response = client.post(

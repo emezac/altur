@@ -1,0 +1,36 @@
+{
+  "summary": {
+    "executive_summary": "Laura from Nube Ventas reaches out to Carlos to follow up on a request for information about the Pro plan for managing prospects and commercial follow-up. Carlos, representing a team of five salespeople, confirms the product meets his needs including reminders automation, sales dashboard, weekly reports, and chat support at 1,490 MXN plus VAT. He confirms his interest in moving forward, and both parties schedule a product demonstration for July 16th at 10:00 AM.",
+    "key_points": [
+      "Team of five salespeople seeking a unified tool for contacts, tasks, and reporting.",
+      "Pro plan features: reminder automation, sales dashboard, weekly reports, and chat support.",
+      "Price confirmed at 1,490 MXN per month plus VAT, no mandatory contract.",
+      "14-day free trial available.",
+      "Product demonstration scheduled for Tuesday, July 16th at 10:00 AM."
+    ],
+    "sentiment": "positive",
+    "sentiment_score": 0.95,
+    "purchase_intent": "high",
+    "intent_score": 0.95,
+    "insights": {
+      "buying_signals": [
+        "Customer confirmed the product covers what he needs.",
+        "Customer expressed interest in moving forward.",
+        "Customer immediately accepted the proposed demo slot."
+      ],
+      "risks": [],
+      "inconsistencies": [],
+      "tone_notes": "Professional and concise tone from both parties. Laura was proactive and Carlos was receptive throughout."
+    }
+  },
+  "tags": {
+    "outcome": "follow_up_scheduled",
+    "outcome_confidence": 1.0,
+    "next_step": "demo_scheduled",
+    "next_step_confidence": 1.0,
+    "objection": "no_objections_raised",
+    "objection_confidence": 0.90,
+    "compliance_flag": "none",
+    "product_interest": ["Pro Plan"]
+  }
+}

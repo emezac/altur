@@ -9,6 +9,8 @@ from app.core.exceptions import AppError
 from app.schemas.call import CallUploadResponse
 from app.services.file_validator import validate_file_size, validate_file_format
 from app.services.calls_service import create_call
+from app.workers.queue import get_queue
+from app.workers.tasks import transcribe_call
 
 router = APIRouter(prefix="/calls")
 logger = logging.getLogger(__name__)
@@ -64,6 +66,11 @@ async def upload_call(
         file_size=actual_size,
         metadata=metadata_dict
     )
+
+    # 5. Enqueue background transcription task
+    queue = get_queue()
+    queue.enqueue(transcribe_call, db_call.id)
+    logger.info(f"Enqueued transcribe_call for call_id={db_call.id}")
 
     return CallUploadResponse(
         call_id=db_call.id,

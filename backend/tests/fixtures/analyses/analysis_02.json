@@ -1,0 +1,42 @@
+{
+  "summary": {
+    "executive_summary": "Mariana from Altura CRM contacts Roberto to discuss integrating their sales system with inventory management and improving reporting. Roberto, who does not have purchasing authority, raises a price objection at 4,900 MXN per month and mentions they are evaluating a competitor. Mariana proposes a controlled pilot for two users to ease adoption concerns and commits to sending a tailored proposal covering total cost, data security, implementation time, and a competitor comparison. Roberto provides fictional contact details and schedules a Thursday 4:00 PM follow-up so the financial director can participate in the decision.",
+    "key_points": [
+      "Customer currently uses spreadsheets and is evaluating Competitor One as an alternative.",
+      "Price objection raised: 4,900 MXN monthly is above budget.",
+      "No purchasing authority — financial director has the final decision.",
+      "Mariana proposes a 2-user controlled pilot to demonstrate adoption value.",
+      "Proposal to include: total cost, data security, implementation timeline, and competitor comparison.",
+      "Follow-up call scheduled for Thursday at 4:00 PM with financial director.",
+      "Customer dictated fictional contact details during the call."
+    ],
+    "sentiment": "mixed",
+    "sentiment_score": 0.60,
+    "purchase_intent": "medium",
+    "intent_score": 0.65,
+    "insights": {
+      "buying_signals": [
+        "Customer showed interest in a controlled pilot approach.",
+        "Customer agreed to a follow-up meeting.",
+        "Customer confirmed the integration requirements align with Altura CRM capabilities."
+      ],
+      "risks": [
+        "No purchasing authority — financial director decides.",
+        "Active competitor evaluation with Competitor One at a lower price point.",
+        "Customer expressed frustration with previous vendor who went unresponsive."
+      ],
+      "inconsistencies": [],
+      "tone_notes": "Customer was rushed and mildly frustrated early in the call. Tone improved after Mariana acknowledged concerns and proposed the pilot."
+    }
+  },
+  "tags": {
+    "outcome": "follow_up_scheduled",
+    "outcome_confidence": 0.95,
+    "next_step": "send_proposal",
+    "next_step_confidence": 1.0,
+    "objection": "price_budget",
+    "objection_confidence": 0.95,
+    "compliance_flag": "possible_sensitive_data",
+    "product_interest": ["Enterprise Plan"]
+  }
+}
