@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css?v=3" />
+  <link rel="stylesheet" href="/static/style.css?v=4" />
 </head>
 
 <body>
@@ -31,6 +31,15 @@
     <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M18 14l.8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8z"/></symbol>
     <symbol id="i-chart" viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="12" width="3" height="6"/><rect x="11" y="8" width="3" height="10"/><rect x="16" y="4" width="3" height="14"/></symbol>
     <symbol id="i-arrow-right" viewBox="0 0 24 24"><line x1="4" y1="12" x2="19" y2="12"/><path d="M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/></symbol>
+    <symbol id="i-brackets" viewBox="0 0 24 24"><path d="M8 4H6a2 2 0 0 0-2 2v4l-1 2 1 2v4a2 2 0 0 0 2 2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v4l1 2-1 2v4a2 2 0 0 1-2 2h-2"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.5A3.5 3.5 0 0 1 18 18z"/></symbol>
+    <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 8"/><path d="M20 4v4h-4"/><path d="M20 12a8 8 0 0 1-13.7 5.6L4 16"/><path d="M4 20v-4h4"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><line x1="7" y1="7.5" x2="7" y2="7.5"/><line x1="7" y1="16.5" x2="7" y2="16.5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3L5 13h6l-1 8 8-10h-6z"/></symbol>
   </svg>
 
   <!-- ── Sidebar ─────────────────────────────────────────────── -->
@@ -69,6 +78,14 @@
         <span>No calls yet</span>
       </div>
     </nav>
+
+    <!-- Sidebar footer -->
+    <div class="sidebar-footer">
+      <button class="nav-btn" id="btnArchitecture">
+        <svg class="icon icon-sm" aria-hidden="true"><use href="#i-layers"/></svg>
+        Architecture &amp; scaling
+      </button>
+    </div>
   </aside>
 
   <!-- ── Main Content ──────────────────────────────────────────── -->
@@ -286,9 +303,142 @@
 
       </div>
     </section>
+
+    <!-- ── Architecture & Scaling page ─────────────────────────────── -->
+    <section class="architecture" id="architecturePage" hidden>
+      <header class="arch-header">
+        <div>
+          <h1 class="arch-title">System Architecture &amp; Scaling</h1>
+          <p class="arch-subtitle" id="archSummary">—</p>
+        </div>
+        <button class="btn-icon" id="closeArchitecture" title="Back"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrow-right" style="transform:scaleX(-1);transform-origin:center"/></svg> Back</button>
+      </header>
+
+      <div class="arch-constraints" id="archConstraints"></div>
+
+      <div class="arch-card arch-diagram-card">
+        <div class="arch-section-title"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg> End-to-end data flow</div>
+        <div class="arch-diagram">
+          <svg viewBox="0 0 1180 660" role="img" aria-labelledby="archDiagTitle archDiagDesc" preserveAspectRatio="xMidYMid meet">
+            <title id="archDiagTitle">Call Analyzer architecture and processing pipeline</title>
+            <desc id="archDiagDesc">A decoupled, event-driven pipeline: the web client uploads audio to a thin FastAPI service that returns 202 Accepted, stores the file in object storage, and enqueues work on a message broker; autoscaled STT and LLM workers process the job and write results to PostgreSQL, which the client observes via polling or SSE.</desc>
+            <defs>
+              <marker id="arrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0 0L10 5L0 10z" class="arrow-fill"/>
+              </marker>
+              <marker id="arrowHeadAsync" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0 0L10 5L0 10z" class="arrow-fill-async"/>
+              </marker>
+            </defs>
+
+            <!-- Lane labels -->
+            <text x="30" y="52" class="lane">1 · Ingestion — synchronous, responds in milliseconds</text>
+            <text x="30" y="278" class="lane">2 · Queue — absorbs 1,000-file bursts (backpressure)</text>
+            <text x="30" y="452" class="lane">3 · Async processing — autoscaled workers</text>
+
+            <!-- Return path: DB -> Client (status) -->
+            <path d="M1010 150 C1010 40, 150 40, 132 96" class="flow-async" marker-end="url(#arrowHeadAsync)"/>
+            <text x="560" y="32" class="elabel async">status via polling / SSE</text>
+
+            <!-- Ingestion nodes -->
+            <g class="node svc">
+              <rect x="30" y="96" width="200" height="70" rx="11"/>
+              <text x="130" y="126" class="nt">Web Client (SPA)</text>
+              <text x="130" y="147" class="ns">upload · live status</text>
+            </g>
+            <g class="node svc">
+              <rect x="300" y="96" width="210" height="70" rx="11"/>
+              <text x="405" y="126" class="nt">FastAPI Ingest API</text>
+              <text x="405" y="147" class="ns">validate · 202 Accepted</text>
+            </g>
+            <g class="node store">
+              <rect x="580" y="96" width="200" height="70" rx="11"/>
+              <text x="680" y="126" class="nt">Object Storage</text>
+              <text x="680" y="147" class="ns">S3 / GCS</text>
+            </g>
+            <g class="node store">
+              <rect x="980" y="150" width="170" height="150" rx="11"/>
+              <text x="1065" y="212" class="nt">PostgreSQL</text>
+              <text x="1065" y="233" class="ns">calls · transcripts</text>
+              <text x="1065" y="252" class="ns">summaries · tags</text>
+            </g>
+
+            <!-- Queue node -->
+            <g class="node infra">
+              <rect x="300" y="300" width="480" height="66" rx="11"/>
+              <text x="540" y="329" class="nt">Message Broker / Queue</text>
+              <text x="540" y="350" class="ns">RQ · Redis / RabbitMQ / Kafka</text>
+            </g>
+
+            <!-- Worker nodes -->
+            <g class="node svc">
+              <rect x="300" y="470" width="210" height="70" rx="11"/>
+              <text x="405" y="500" class="nt">STT Workers</text>
+              <text x="405" y="521" class="ns">Whisper / Deepgram</text>
+            </g>
+            <g class="node svc">
+              <rect x="570" y="470" width="210" height="70" rx="11"/>
+              <text x="675" y="500" class="nt">LLM Workers</text>
+              <text x="675" y="521" class="ns">OpenAI / Qwen</text>
+            </g>
+
+            <!-- Ingestion flows -->
+            <line x1="230" y1="131" x2="300" y2="131" class="flow" marker-end="url(#arrowHead)"/>
+            <text x="265" y="121" class="elabel">upload</text>
+            <line x1="510" y1="131" x2="580" y2="131" class="flow" marker-end="url(#arrowHead)"/>
+            <text x="545" y="121" class="elabel">presigned</text>
+            <path d="M510 152 C720 190, 860 200, 980 210" class="flow" marker-end="url(#arrowHead)"/>
+            <text x="720" y="205" class="elabel">write PENDING</text>
+
+            <!-- Storage -> Queue -->
+            <path d="M680 166 C680 230, 620 250, 600 300" class="flow" marker-end="url(#arrowHead)"/>
+            <text x="700" y="245" class="elabel">event: audio.uploaded</text>
+
+            <!-- Queue -> STT -->
+            <line x1="405" y1="366" x2="405" y2="470" class="flow-async" marker-end="url(#arrowHeadAsync)"/>
+            <text x="452" y="425" class="elabel async">consume</text>
+            <!-- STT -> LLM -->
+            <line x1="510" y1="505" x2="570" y2="505" class="flow-async" marker-end="url(#arrowHeadAsync)"/>
+            <!-- LLM -> DB -->
+            <path d="M780 500 C900 470, 960 400, 1010 300" class="flow-async" marker-end="url(#arrowHeadAsync)"/>
+            <text x="905" y="430" class="elabel async">write COMPLETED</text>
+
+            <!-- Cross-cutting best-practice chips -->
+            <text x="30" y="600" class="band-title">Cross-cutting</text>
+            <g class="bp"><rect x="30"  y="612" width="228" height="34" rx="17"/><text x="144" y="634" class="bpt">Idempotent state machine</text></g>
+            <g class="bp"><rect x="278" y="612" width="248" height="34" rx="17"/><text x="402" y="634" class="bpt">Observability &amp; audit trail</text></g>
+            <g class="bp"><rect x="546" y="612" width="236" height="34" rx="17"/><text x="664" y="634" class="bpt">PII redaction at the edge</text></g>
+            <g class="bp"><rect x="802" y="612" width="248" height="34" rx="17"/><text x="926" y="634" class="bpt">Autoscale on queue depth</text></g>
+
+            <!-- Legend -->
+            <g class="legend">
+              <rect x="980" y="470" width="14" height="14" rx="3" class="lg-svc"/><text x="1002" y="482" class="lgt">Service</text>
+              <rect x="980" y="494" width="14" height="14" rx="3" class="lg-infra"/><text x="1002" y="506" class="lgt">Queue</text>
+              <rect x="1070" y="470" width="14" height="14" rx="3" class="lg-store"/><text x="1092" y="482" class="lgt">Data store</text>
+              <line x1="1070" y1="500" x2="1084" y2="500" class="flow-async"/><text x="1092" y="506" class="lgt">Async</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="arch-card">
+        <div class="arch-section-title"><svg class="icon" aria-hidden="true"><use href="#i-server"/></svg> Modular components</div>
+        <div class="arch-layers" id="archLayers"></div>
+      </div>
+
+      <div class="arch-card">
+        <div class="arch-section-title"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg> Processing pipeline</div>
+        <ol class="arch-pipeline" id="archPipeline"></ol>
+      </div>
+
+      <div class="arch-card">
+        <div class="arch-section-title"><svg class="icon" aria-hidden="true"><use href="#i-bolt"/></svg> Production scaling strategy</div>
+        <div class="arch-scaling" id="archScaling"></div>
+      </div>
+    </section>
   </main>
 
-  <script src="/static/app.js?v=2"></script>
+  <script src="/static/app.js?v=4"></script>
 </body>
 </html>
 

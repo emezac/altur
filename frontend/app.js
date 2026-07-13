@@ -408,7 +408,14 @@ async function openCallDetail(id) {
   activeCallId = id;
   stopActivePolling();
   resetTabs();
-  
+
+  // Leave the architecture page if it was open
+  if (architecturePage && !architecturePage.hidden) {
+    architecturePage.hidden = true;
+    statsRow.hidden = false;
+    btnArchitecture.classList.remove('active');
+  }
+
   welcome.hidden = true;
   detail.hidden  = false;
   detailGrid.hidden  = true;
@@ -737,6 +744,122 @@ function renderTimeline(events) {
       </li>`;
   }).join('');
 }
+
+// ── Architecture page ─────────────────────────────────────────────
+const btnArchitecture   = document.getElementById('btnArchitecture');
+const closeArchitecture = document.getElementById('closeArchitecture');
+const architecturePage  = document.getElementById('architecturePage');
+const statsRow          = document.getElementById('statsRow');
+const archSummary       = document.getElementById('archSummary');
+const archConstraints   = document.getElementById('archConstraints');
+const archLayers        = document.getElementById('archLayers');
+const archPipeline      = document.getElementById('archPipeline');
+const archScaling       = document.getElementById('archScaling');
+
+const LAYER_ICON = {
+  client: 'i-monitor', api: 'i-brackets', storage: 'i-cloud', queue: 'i-layers',
+  stt: 'i-mic', llm: 'i-sparkles', state: 'i-refresh', db: 'i-database',
+  observability: 'i-activity',
+};
+
+let architectureLoaded = false;
+
+async function fetchArchitecture() {
+  const res = await fetch(`${API}/architecture`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+function renderArchitecture(data) {
+  archSummary.textContent = data.summary;
+
+  archConstraints.innerHTML = (data.constraints || [])
+    .map(c => `<span class="arch-constraint">${c}</span>`).join('');
+
+  archLayers.innerHTML = (data.layers || []).map(l => {
+    const icon = LAYER_ICON[l.id] || 'i-layers';
+    const bps = (l.best_practices || []).map(b => `<li>${b}</li>`).join('');
+    return `
+      <div class="arch-layer">
+        <div class="arch-layer-head">
+          <span class="arch-layer-icon"><svg class="icon" aria-hidden="true"><use href="#${icon}"/></svg></span>
+          <div>
+            <div class="arch-layer-title">${l.title}</div>
+            <div class="arch-layer-tech">${l.tech}</div>
+          </div>
+        </div>
+        <p class="arch-layer-resp">${l.responsibility}</p>
+        <ul class="arch-bp-list">${bps}</ul>
+      </div>`;
+  }).join('');
+
+  archPipeline.innerHTML = (data.pipeline || []).map((s, i) => `
+    <li class="arch-step">
+      <span class="arch-step-num">${i + 1}</span>
+      <div class="arch-step-body">
+        <div class="arch-step-head">
+          <span class="arch-step-name">${s.step}</span>
+          <span class="arch-step-state">${s.state}</span>
+        </div>
+        <p class="arch-step-detail">${s.detail}</p>
+      </div>
+    </li>`).join('');
+
+  const sc = data.scaling || {};
+  const strategy = (sc.strategy || []).map(s =>
+    `<div class="arch-strategy-item"><div class="t">${s.title}</div><div class="d">${s.detail}</div></div>`).join('');
+  const bottlenecks = (sc.bottlenecks || []).map(b =>
+    `<div class="arch-bottleneck"><div class="bn">${b.name}</div><div class="bm">${b.mitigation}</div></div>`).join('');
+  const pii = (sc.pii || []).map(p => `<li>${p}</li>`).join('');
+
+  archScaling.innerHTML = `
+    <div class="arch-scale-envs">
+      <div class="arch-scale-env"><h4>Development</h4><p>${sc.dev || ''}</p></div>
+      <div class="arch-scale-env"><h4>Production</h4><p>${sc.production || ''}</p></div>
+    </div>
+    <div>
+      <div class="arch-subhead">Scaling strategy</div>
+      <div class="arch-strategy-grid">${strategy}</div>
+    </div>
+    <div>
+      <div class="arch-subhead">Bottlenecks &amp; mitigations</div>
+      ${bottlenecks}
+    </div>
+    <div>
+      <div class="arch-subhead">PII handling</div>
+      <ul class="arch-pii-list">${pii}</ul>
+    </div>`;
+}
+
+async function showArchitecture() {
+  stopActivePolling();
+  activeCallId = null;
+  document.querySelectorAll('.call-item').forEach(el => el.classList.remove('active'));
+
+  welcome.hidden = true;
+  detail.hidden = true;
+  statsRow.hidden = true;
+  architecturePage.hidden = false;
+  btnArchitecture.classList.add('active');
+  architecturePage.scrollTop = 0;
+
+  if (!architectureLoaded) {
+    const data = await fetchArchitecture();
+    if (data) { renderArchitecture(data); architectureLoaded = true; }
+    else { archSummary.textContent = 'Could not load architecture document.'; }
+  }
+}
+
+function hideArchitecture() {
+  architecturePage.hidden = true;
+  statsRow.hidden = false;
+  btnArchitecture.classList.remove('active');
+  welcome.hidden = false;
+  detail.hidden = true;
+}
+
+btnArchitecture.addEventListener('click', showArchitecture);
+closeArchitecture.addEventListener('click', hideArchitecture);
 
 // ── Boot ──────────────────────────────────────────────────────────
 (async function init() {
