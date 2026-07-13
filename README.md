@@ -116,7 +116,84 @@ All routes are prefixed by `/api/v1`.
 
 ---
 
-## 5. Running Tests
+## 5. Tagging Schema, Prompt Design & Quality Evaluation
+
+### 5.1 Tagging Schema
+
+The LLM is instructed to classify every call into **7 structured tag categories** with a closed, enum-constrained vocabulary. The schema is defined in [`app/schemas/tag_schema.py`](backend/app/schemas/tag_schema.py) and injected directly into the system prompt — so the model never drifts from the values that the validation layer enforces.
+
+| Category | What it captures | Allowed values |
+|----------|-----------------|----------------|
+| `outcome` | The direct result of the call | `won_deal_closed`, `follow_up_scheduled`, `not_interested`, `no_decision`, `unresolved_objection` |
+| `sentiment` | Customer emotional tone | `positive`, `neutral`, `negative`, `mixed` |
+| `intent_level` | Buying intent signal strength | `high`, `medium`, `low` |
+| `objection_type` | Primary hesitation raised | `price_budget`, `timing_schedule`, `competitor_brand`, `no_immediate_need`, `no_purchasing_authority`, `no_objections_raised` |
+| `next_step` | Agreed follow-up action | `demo_scheduled`, `send_proposal`, `call_again_follow_up`, `escalated_to_supervisor`, `closed_lost` |
+| `compliance_flag` | Quality / audit risk flag | `possible_sensitive_data`, `inappropriate_language`, `none` |
+| `product_interest` | Product lines mentioned (open list) | free-form strings |
+
+**Justification:**
+- **`outcome` + `next_step`** are the two highest-value fields for a sales manager. Knowing the result and the committed action is the minimum viable context to run a pipeline review.
+- **`objection_type`** captures the single biggest blocker per call. Aggregating this across hundreds of calls exposes systemic product or pricing gaps.
+- **`sentiment` + `intent_level`** are complementary signals: a prospect can be *positive but low-intent* (friendly but not ready to buy) or *negative but high-intent* (price-sensitive but motivated). Both dimensions together are far more predictive than either alone.
+- **`compliance_flag`** is non-negotiable for regulated industries. Flagging calls with sensitive data or aggressive language enables an auditor queue without requiring humans to review every recording.
+- **Closed vocabulary** is intentional: open-ended tags produce inconsistent distributions, making aggregation and trend analysis unreliable. New values should be added to the enum deliberately, not discovered ad-hoc in the database.
+
+### 5.2 Prompt Design
+
+The analysis system prompt is built dynamically in [`app/workers/tasks.py`](backend/app/workers/tasks.py) by the `_build_analysis_system_prompt()` function. Key design decisions:
+
+1. **Role anchoring** — The LLM is assigned a concrete identity: *"You are an expert sales-call analyzer."* This reduces generic, hedge-heavy responses.
+
+2. **Strict JSON schema output** — The prompt spells out the exact nested envelope (`summary` → `tags`) with field names, types, and constraints. No markdown, no code fences, no preamble. This makes parsing deterministic.
+
+3. **Enum values derived from code, not prose** — The allowed values for each tag are generated from `ALLOWED_VALUES` at runtime. There is no hard-coded string in the prompt that can drift out of sync with the validator.
+
+4. **Explicit handling of edge cases** — The prompt instructs the model to *"record numeric inconsistencies under `inconsistencies` rather than silently correcting them"*, producing auditable rather than hallucinated output.
+
+5. **Language-aware output** — The model detects the transcript language and writes the summary in that language, making the system useful for multilingual sales teams without extra translation steps.
+
+6. **JSON self-repair** — If the LLM returns malformed JSON, the worker retries once with an explicit repair instruction. A second failure falls back to a `needs_review=True` placeholder summary — the call is marked `COMPLETED`, not `FAILED`, so the pipeline never stalls on a single bad response.
+
+Full prompt text: see `_build_analysis_system_prompt()` in [`backend/app/workers/tasks.py`](backend/app/workers/tasks.py).
+
+### 5.3 Evaluating Tagging Quality Over Time
+
+The platform is built with a four-layer quality flywheel:
+
+**A. Gold Standard Dataset**
+Maintain a curated set of 50–100 calls manually annotated by senior sales auditors. This dataset is the ground truth. Every prompt change must be tested against it before deployment.
+
+**B. Automated Regression (CI/CD — LLM-as-a-Judge)**
+On every pull request that touches a prompt or the analysis worker, a CI job runs the gold set through the production analyzer and compares outputs with a judge LLM. Any tag category dropping below **95% F1-score** blocks the merge.
+
+```
+New Prompt Draft
+      │
+      ▼
+Test Run on Gold Set Dataset
+      │
+      ▼
+Judge LLM Evaluator (Precision / Recall / F1 per category)
+      │
+      ├──[≥ 95%]──→ Deploy
+      └──[< 95%]──→ Block + Alert
+```
+
+**C. Human Override Feedback Loop (already shipped)**
+When a human auditor corrects a tag in the UI, the correction is saved to the `call_tag_overrides` table (implemented, tested). The override rate per category is a leading indicator of prompt degradation. A sustained override rate above ~10% on a category signals the need for a prompt revision.
+
+**D. Semantic Drift Monitoring**
+Weekly job that aggregates the distribution of every tag value across production calls. If `no_objections_raised` jumps from 35% to 80% without a corresponding business explanation, it indicates the model has started taking the path of least resistance — a classic prompt drift pattern.
+
+**E. Prompt A/B Testing**
+New prompt candidates are deployed to 10% of incoming calls. Override rate, confidence distribution, and latency are compared against the control before a full rollout.
+
+> See [`docs/prompt_design.md`](docs/prompt_design.md) for the full extended documentation including the evaluation pipeline diagram.
+
+---
+
+## 6. Running Tests
 
 The test suite contains 29 unit and integration tests covering validations, fake provider routing, worker tasks, error boundaries, and retrieve routes.
 
