@@ -115,7 +115,7 @@ services:
       dockerfile: Dockerfile
     container_name: call-analyzer-worker
     restart: unless-stopped
-    command: python -m rq worker -u redis://redis:6379/0
+    command: python -m app.workers.run_worker
     environment:
       APP_ENV: local_docker
       DATABASE_URL: postgresql+psycopg://call_analyzer:call_analyzer@postgres:5432/call_analyzer

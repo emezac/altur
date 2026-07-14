@@ -17,7 +17,11 @@ def check_redis() -> bool:
         return True
     try:
         import redis
-        r = redis.Redis.from_url(settings.REDIS_URL, socket_connect_timeout=1)
+        kwargs = {"socket_connect_timeout": 1}
+        # Heroku Redis uses rediss:// with a self-signed cert; skip verification.
+        if settings.REDIS_URL.startswith("rediss://"):
+            kwargs["ssl_cert_reqs"] = None
+        r = redis.Redis.from_url(settings.REDIS_URL, **kwargs)
         return bool(r.ping())
     except Exception:
         return False
