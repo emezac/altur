@@ -248,6 +248,7 @@ All project documentation lives in [`docs/`](docs/):
 | [`architecture_scale.md`](docs/architecture_scale.md) | Production architecture and scalability strategy |
 | [`prompt_design.md`](docs/prompt_design.md) | Prompt construction, tagging schema, and quality evaluation |
 | [`complex_call_analysis.md`](docs/complex_call_analysis.md) | **New** — worked examples: how the analyzer handles two hard sales calls (objections, gatekeepers, competitor pressure, compliance nuance, and a caught numeric inconsistency) |
+| [`api_contract_findings.md`](docs/api_contract_findings.md) | **New** — CALL-E returns transcript (not audio) verified vs the OpenAPI + a real call; the provider-agnostic `POST /api/v1/calls/webhook` ingestion decision |
 | [`testing_strategy.md`](docs/testing_strategy.md) | Test architecture, isolation, and coverage strategy |
 | [`predictive_analytics.md`](docs/predictive_analytics.md) | **New** — predictive/analytical model design: win propensity, loss drivers, bot-misbehaviour detection, and provider SLO monitoring with alarms (summarized in §8.1) |
 | [`software_factory.md`](docs/software_factory.md) | **New** — self-improvement strategy: the exact code to instrument as measurement points, automated metric review, and continuous improvement cycles (summarized in §8.2) |

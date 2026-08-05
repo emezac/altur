@@ -15,6 +15,7 @@ from app.schemas.call import (
     PaginatedCallsResponse,
 )
 from app.schemas.tag_schema import TagUpdateRequest
+from app.schemas.webhook import WebhookIngestRequest, WebhookIngestResponse
 from app.models.call import Call
 from app.services.file_validator import validate_file_size, validate_file_format
 from app.services.calls_service import (
@@ -26,8 +27,9 @@ from app.services.calls_service import (
     get_call_export,
     PROGRESS_MAP,
 )
+from app.services.ingest_service import ingest_from_webhook
 from app.workers.queue import get_queue
-from app.workers.tasks import transcribe_call
+from app.workers.tasks import transcribe_call, analyze_call
 from app.services.storage.factory import get_storage_backend
 from app.api.health import check_queue_available
 
@@ -113,6 +115,53 @@ async def upload_call(
         status=call_status,
         filename=call_filename,
         uploaded_at=call_uploaded_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /calls/webhook — Provider-agnostic ingestion (CALL-E, Twilio, …)
+# ---------------------------------------------------------------------------
+@router.post("/webhook", response_model=WebhookIngestResponse, status_code=202)
+def ingest_webhook(payload: WebhookIngestRequest, db: Session = Depends(get_db)):
+    """
+    Single entry point for analyzing a call from ANY source, decoupled from how it
+    was placed. See docs/api_contract_findings.md for why this is transcript-first:
+    CALL-E returns turn-level `transcript_turns` (not raw audio), so we run our own
+    closed-schema analysis on real content rather than reselling the provider's
+    self-assessment.
+
+      * transcript_turns present -> STT is skipped; analyze_call runs immediately.
+      * audio_url only           -> transcribe_call runs first. NOTE: the STT
+        provider must fetch the remote URL; wiring URL-fetch into the STT adapter
+        is the one seam left for audio-first sources (documented, not yet built).
+
+    Auth/multi-tenancy: `owner_id` scopes the call to a tenant and is the hook for
+    API-key auth when this is packaged as a SaaS.
+    """
+    if not check_queue_available():
+        raise AppError(
+            "QUEUE_UNAVAILABLE",
+            "The job queue is currently unavailable. Please try again later.",
+            503,
+        )
+
+    db_call, mode = ingest_from_webhook(db, payload)
+    call_id = db_call.id
+    call_status = db_call.status
+
+    queue = get_queue()
+    if mode == "transcript":
+        queue.enqueue(analyze_call, call_id)
+        logger.info(f"[call_id={call_id}] Webhook transcript ingest -> enqueued analyze_call")
+    else:
+        queue.enqueue(transcribe_call, call_id)
+        logger.info(f"[call_id={call_id}] Webhook audio ingest -> enqueued transcribe_call")
+
+    return WebhookIngestResponse(
+        call_id=call_id,
+        status=call_status,
+        source=payload.source,
+        mode=mode,
     )
 
 
