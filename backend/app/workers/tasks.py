@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from app.core.db import SessionLocal
 from app.models.call import Call
 from app.models.transcript import Transcript
@@ -7,6 +8,7 @@ from app.models.summary import Summary
 from app.models.tag import CallTag
 from app.models.event import CallEvent
 from app.services.stt.factory import get_stt_provider
+from app.services.remote_audio import is_remote_url, fetch_to_tempfile
 from app.services.llm.factory import get_llm_provider
 from app.services.state_machine import transition
 from app.workers.queue import get_queue
@@ -108,9 +110,20 @@ def transcribe_call(call_id: str) -> None:
             )
             return
 
-        # Transcribe audio file
+        # Transcribe audio file. Audio-first webhook ingestion stores an HTTPS URL
+        # in storage_path; fetch it to a local temp file (SSRF-guarded) first, then
+        # always clean it up. Local/S3 paths pass through unchanged.
         stt = get_stt_provider()
-        result = stt.transcribe(call.storage_path)
+        local_audio = None
+        try:
+            audio_ref = call.storage_path
+            if is_remote_url(audio_ref):
+                local_audio = fetch_to_tempfile(audio_ref)
+                audio_ref = local_audio
+            result = stt.transcribe(audio_ref)
+        finally:
+            if local_audio and os.path.exists(local_audio):
+                os.unlink(local_audio)
 
         # Persist transcript record
         raw_text = " ".join(turn.text for turn in result.turns)

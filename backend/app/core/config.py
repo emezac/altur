@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     MAX_UPLOAD_MB: int = 100
     FAKE_PROCESSING_DELAY_SECONDS: float = 2.0
 
+    # --- Remote audio fetch (audio-first webhook ingestion) ---
+    # SSRF guardrails for downloading a provider's recording URL before STT.
+    # Comma-separated host allowlist; empty = allow any public host.
+    REMOTE_AUDIO_ALLOWED_HOSTS: str = ""
+    REMOTE_AUDIO_TIMEOUT_SECONDS: int = 20
+
     # --- Security / App ---
     SECRET_KEY: str = "change-me"
     CORS_ORIGINS: str = "http://localhost:5173"
