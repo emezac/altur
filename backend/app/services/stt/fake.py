@@ -49,7 +49,12 @@ class FakeSTTProvider(STTProvider):
 
     def transcribe(self, audio_path: str, language_hint: Optional[str] = None) -> TranscriptResult:
         filename = os.path.basename(audio_path).lower()
-        logger.info(f"FakeSTTProvider: transcribing '{filename}'")
+        # Storage saves files as "{uuid4}_{original}". A random UUID hex can contain
+        # "01"/"02"/"03", which would shadow the real fixture number via the substring
+        # match below. Strip the UUID prefix (uuid4 has no underscores) so routing keys
+        # off the original filename only, keeping fixture selection deterministic.
+        match_target = filename.split("_", 1)[-1] if "_" in filename else filename
+        logger.info(f"FakeSTTProvider: transcribing '{filename}' (routing on '{match_target}')")
 
         # Simulate processing latency
         delay = getattr(settings, "FAKE_PROCESSING_DELAY_SECONDS", 0)
@@ -57,15 +62,15 @@ class FakeSTTProvider(STTProvider):
             logger.debug(f"FakeSTTProvider: simulating {delay}s processing delay.")
             time.sleep(delay)
 
-        # Route to the appropriate fixture based on filename
-        if "01" in filename or "call_01" in filename:
+        # Route to the appropriate fixture based on the original filename
+        if "01" in match_target or "call_01" in match_target:
             data = _load_fixture("call_01.json")
-        elif "02" in filename or "call_02" in filename:
+        elif "02" in match_target or "call_02" in match_target:
             data = _load_fixture("call_02.json")
-        elif "03" in filename or "call_03" in filename:
+        elif "03" in match_target or "call_03" in match_target:
             data = _load_fixture("call_03.json")
         else:
-            logger.warning(f"FakeSTTProvider: no fixture matched for '{filename}'. Using generic fallback.")
+            logger.warning(f"FakeSTTProvider: no fixture matched for '{match_target}'. Using generic fallback.")
             data = _GENERIC_TRANSCRIPT
 
         turns = [Turn(**t) for t in data["turns"]]
