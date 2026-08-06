@@ -322,6 +322,16 @@ def analyze_call(call_id: str) -> None:
         db.add(db_summary)
 
         tag_rows = [
+            # sentiment / intent_level live in the `summary` block of the analysis,
+            # not `tags`. Persist them as CallTag rows so the list view and analytics
+            # (which read the "sentiment" tag category) have data to surface. The
+            # *_score fields double as the tag confidence.
+            CallTag(call_id=call_id, tag_category="sentiment",
+                    tag_value=summary_data["sentiment"],
+                    confidence=summary_data.get("sentiment_score", 0.5)),
+            CallTag(call_id=call_id, tag_category="intent_level",
+                    tag_value=summary_data["purchase_intent"],
+                    confidence=summary_data.get("intent_score", 0.5)),
             CallTag(call_id=call_id, tag_category="outcome",
                     tag_value=tags_data["outcome"],
                     confidence=tags_data["outcome_confidence"]),

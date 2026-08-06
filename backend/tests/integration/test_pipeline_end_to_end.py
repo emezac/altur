@@ -44,6 +44,39 @@ def test_pipeline_end_to_end_fixture_01(client, db):
     assert tag_map["outcome"] == "follow_up_scheduled" or tag_map["outcome"] == "won_deal_closed"
     assert tag_map["next_step"] == "demo_scheduled"
     assert tag_map["objection"] == "no_objections_raised"
+    # sentiment / intent_level are now persisted as tags from the summary block
+    assert tag_map["sentiment"] == "positive"
+    assert tag_map["intent_level"] == "high"
+
+
+def test_pipeline_persists_sentiment_tag(client, db):
+    """
+    A completed fake pipeline must persist the sentiment (and intent_level) from the
+    analysis summary as CallTag rows, with the *_score carried over as confidence.
+    This guards the list/analytics views that read the "sentiment" tag category.
+    """
+    file_content = b"RIFF\x24\x08\x00\x00WAVEfmt " + b"\x00" * 100
+    file_name = "call_01_sales_demo.wav"  # Filename has '01' to trigger fixture 01
+
+    response = client.post(
+        "/api/v1/calls",
+        files={"file": (file_name, io.BytesIO(file_content), "audio/wav")},
+    )
+    assert response.status_code == 202
+    call_id = response.json()["call_id"]
+
+    call = db.query(Call).filter(Call.id == call_id).first()
+    assert call is not None and call.status == "COMPLETED"
+
+    sentiment_tag = (
+        db.query(CallTag)
+        .filter(CallTag.call_id == call_id, CallTag.tag_category == "sentiment")
+        .first()
+    )
+    assert sentiment_tag is not None, "pipeline did not persist a sentiment tag"
+    assert sentiment_tag.tag_value == "positive"
+    assert sentiment_tag.source == "model"
+    assert 0.0 <= sentiment_tag.confidence <= 1.0
 
 def test_pipeline_end_to_end_fixture_03_inconsistencies(client, db):
     """
